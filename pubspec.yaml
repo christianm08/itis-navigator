@@ -1,0 +1,52 @@
+name: cassino_itis_navigator
+description: App per navigare dalla Stazione di Cassino all'ITIS E. Majorana
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_localizations:
+    sdk: flutter
+  # UI
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.1.0
+  animations: ^2.0.0
+  
+  # Maps & Location
+  google_maps_flutter: ^2.5.0
+  geolocator: ^10.1.0
+  
+  # HTTP & APIs
+  http: ^1.1.0
+  
+  # State Management
+  provider: ^6.1.1
+  
+  # Utilities
+  intl: ^0.20.2
+  url_launcher: ^6.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^4.0.0
+
+flutter:
+  generate: true
+  uses-material-design: true
+  
+  assets:
+    - assets/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#20B2AA"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
