@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/location_service.dart';
 import '../services/weather_service.dart';
 import 'map_navigation_screen.dart';
@@ -13,10 +14,29 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String _currentTime = '';
+  String _currentDate = '';
+
   @override
   void initState() {
     super.initState();
     _initializeServices();
+    _updateTime();
+    // Aggiorna l'ora ogni secondo
+    Stream.periodic(const Duration(seconds: 1)).listen((_) {
+      _updateTime();
+    });
+  }
+
+  void _updateTime() {
+    final now = DateTime.now();
+    final timeFormat = DateFormat('HH:mm:ss');
+    final dateFormat = DateFormat('EEEE, d MMMM yyyy', 'it_IT');
+    
+    setState(() {
+      _currentTime = timeFormat.format(now);
+      _currentDate = dateFormat.format(now);
+    });
   }
 
   Future<void> _initializeServices() async {
@@ -30,9 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final now = DateTime.now();
-    final timeFormat = DateFormat('HH:mm');
-    final dateFormat = DateFormat('EEEE, d MMMM yyyy', 'it_IT');
     
     return Scaffold(
       body: CustomScrollView(
@@ -73,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    timeFormat.format(now),
+                    _currentTime,
                     style: theme.textTheme.displayLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -82,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    dateFormat.format(now),
+                    _currentDate,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: Colors.white.withOpacity(0.9),
                       fontWeight: FontWeight.w500,
@@ -108,14 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 
                 // Info Scuola
                 _buildSchoolInfoCard(theme),
-                const SizedBox(height: 20),
-                
-                // Orari e Info Utili
-                _buildScheduleCard(theme),
-                const SizedBox(height: 20),
-                
-                // Contatti
-                _buildContactsCard(theme),
                 const SizedBox(height: 20),
               ]),
             ),
@@ -200,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const Spacer(),
-                        _buildWeatherDetail(theme, '💨', '${weatherService.windSpeed} km/h'),
+                        _buildWeatherDetail(theme, '💨', '${weatherService.windSpeed.toStringAsFixed(1)} km/h'),
                         const SizedBox(width: 16),
                         _buildWeatherDetail(theme, '💧', '${weatherService.humidity}%'),
                       ],
@@ -339,9 +348,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: theme.colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text(
+                child: const Text(
                   '🏫',
-                  style: const TextStyle(fontSize: 28),
+                  style: TextStyle(fontSize: 28),
                 ),
               ),
               const SizedBox(width: 16),
@@ -358,156 +367,61 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 20),
           _buildInfoRow(theme, '📍', 'Via S. Pertini, Cassino'),
           const SizedBox(height: 12),
-          _buildInfoRow(theme, '📞', '0776 21733'),
-          const SizedBox(height: 12),
           _buildInfoRow(theme, '✉️', 'fris007004@istruzione.it'),
-          const SizedBox(height: 12),
-          _buildInfoRow(theme, '🌐', 'www.itismajoranacd.edu.it'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScheduleCard(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  '⏰',
-                  style: const TextStyle(fontSize: 28),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Orari Utili',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildScheduleItem(theme, 'Ingresso Mattutino', '08:00 - 08:10'),
-          const SizedBox(height: 12),
-          _buildScheduleItem(theme, 'Prima Ora', '08:10 - 09:10'),
-          const SizedBox(height: 12),
-          _buildScheduleItem(theme, 'Intervallo', '10:10 - 10:20'),
-          const SizedBox(height: 12),
-          _buildScheduleItem(theme, 'Uscita', '13:10 / 14:10'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScheduleItem(ThemeData theme, String label, String time) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.tertiaryContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            time,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.tertiary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContactsCard(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primaryContainer,
-            theme.colorScheme.secondaryContainer,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '💬 Bisogno di aiuto?',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Contatta la segreteria per informazioni su orari, iscrizioni e servizi.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[700],
-            ),
-          ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.phone),
-                  label: const Text('Chiama'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.tertiary,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () async {
+                  final url = Uri.parse('https://itiscassino.edu.it/');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Impossibile aprire il sito web'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.language,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Visita il Sito Web',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.email),
-                  label: const Text('Email'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.tertiary,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
