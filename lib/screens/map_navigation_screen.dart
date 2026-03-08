@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import '../services/location_service.dart';
 import '../services/navigation_service.dart';
 import '../models/landmark.dart';
-import '../widgets/navigation_bottom_sheet.dart';
 
 class MapNavigationScreen extends StatefulWidget {
   const MapNavigationScreen({super.key});
@@ -17,76 +17,41 @@ class MapNavigationScreen extends StatefulWidget {
 class _MapNavigationScreenState extends State<MapNavigationScreen> {
   GoogleMapController? _mapController;
   
-  // Coordinate ITIS E. Majorana Cassino
+  // Coordinate ITIS E. Majorana Cassino (destinazione finale)
   static const LatLng _itisLocation = LatLng(41.4688333, 13.8341111);
-  // Stazione Cassino
+  // Stazione Cassino (partenza)
   static const LatLng _stationLocation = LatLng(41.4847222, 13.83225);
 
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
-  final Set<Circle> _circles = {};
-  StreamSubscription? _locationSubscription;
-  bool _followUser = true;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeNavigation();
+    _initializeMap();
   }
 
-  void _initializeNavigation() {
-    final navService = context.read<NavigationService>();
+  Future<void> _initializeMap() async {
     final locationService = context.read<LocationService>();
+    await locationService.initialize();
     
-    // Inizializza il percorso con i waypoint
-    navService.initializeRoute(Landmark.routeCsvPoints());
-    
-    // Avvia il tracciamento della posizione
-    locationService.initialize().then((_) {
-      navService.startNavigation();
-      _setupLocationListener();
-      _setupMapElements();
-    });
-  }
-
-  void _setupLocationListener() {
-    final locationService = context.read<LocationService>();
-    final navService = context.read<NavigationService>();
-    
-    locationService.addListener(() {
-      final position = locationService.currentPosition;
-      if (position != null) {
-        navService.updatePosition(position);
-        
-        if (_followUser && _mapController != null) {
-          _mapController!.animateCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(
-                target: LatLng(position.latitude, position.longitude),
-                zoom: 17.5,
-                bearing: locationService.heading ?? 0,
-                tilt: 45,
-              ),
-            ),
-          );
-        }
-        
-        _updateMarkers();
-      }
-    });
+    _setupMapElements();
+    setState(() => _isInitialized = true);
   }
 
   void _setupMapElements() {
-    _setupWaypointMarkers();
+    final navService = context.read<NavigationService>();
+    navService.initializeRoute(Landmark.routeCsvPoints());
+    
+    _setupMarkers();
     _setupRoute();
-    setState(() {});
   }
 
-  void _setupWaypointMarkers() {
-    final navService = context.read<NavigationService>();
+  void _setupMarkers() {
     _markers.clear();
     
-    // Marker stazione (inizio)
+    // Marker stazione (partenza)
     _markers.add(
       Marker(
         markerId: const MarkerId('station'),
@@ -111,74 +76,13 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
         ),
       ),
     );
-
-    // Aggiungi marker per ogni waypoint importante
-    int markerCount = 0;
-    for (var waypoint in navService.waypoints) {
-      // Mostra solo waypoint ogni 3 per non sovraffollare la mappa
-      if (waypoint.order % 3 == 0 || waypoint.name.contains('INIZIO') || waypoint.name.contains('ARRIVO')) {
-        _markers.add(
-          Marker(
-            markerId: MarkerId('waypoint_${waypoint.order}'),
-            position: LatLng(waypoint.latitude, waypoint.longitude),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-            alpha: 0.7,
-            infoWindow: InfoWindow(
-              title: waypoint.name,
-              snippet: waypoint.description,
-            ),
-          ),
-        );
-        markerCount++;
-      }
-    }
-  }
-
-  void _updateMarkers() {
-    final navService = context.read<NavigationService>();
-    final locationService = context.read<LocationService>();
-    
-    if (locationService.currentPosition == null) return;
-    
-    // Aggiorna il marker della posizione corrente con heading
-    final currentPos = locationService.currentPosition!;
-    
-    // Cerchio di accuratezza
-    _circles.clear();
-    _circles.add(
-      Circle(
-        circleId: const CircleId('accuracy'),
-        center: LatLng(currentPos.latitude, currentPos.longitude),
-        radius: currentPos.accuracy,
-        fillColor: Colors.blue.withOpacity(0.1),
-        strokeColor: Colors.blue.withOpacity(0.3),
-        strokeWidth: 1,
-      ),
-    );
-    
-    // Cerchio per il prossimo waypoint
-    final nextWaypoint = navService.currentWaypoint;
-    if (nextWaypoint != null) {
-      _circles.add(
-        Circle(
-          circleId: const CircleId('nextWaypoint'),
-          center: LatLng(nextWaypoint.latitude, nextWaypoint.longitude),
-          radius: 15,
-          fillColor: Colors.green.withOpacity(0.3),
-          strokeColor: Colors.green,
-          strokeWidth: 2,
-        ),
-      );
-    }
-    
-    setState(() {});
   }
 
   void _setupRoute() {
     final navService = context.read<NavigationService>();
     _polylines.clear();
     
-    // Crea una polyline che connette tutti i waypoint
+    // Crea polyline con tutti i waypoint
     List<LatLng> routePoints = navService.waypoints
         .map((w) => LatLng(w.latitude, w.longitude))
         .toList();
@@ -187,343 +91,382 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
       Polyline(
         polylineId: const PolylineId('main_route'),
         points: routePoints,
-        color: const Color(0xFF6366F1),
+        color: const Color(0xFFFF6B6B),
         width: 6,
-        patterns: [PatternItem.dash(20), PatternItem.gap(10)],
         startCap: Cap.roundCap,
         endCap: Cap.roundCap,
       ),
     );
+  }
+
+  Future<void> _startGoogleMapsNavigation() async {
+    // Usa Google Maps per la navigazione turn-by-turn reale
+    final origin = '${_stationLocation.latitude},${_stationLocation.longitude}';
+    final destination = '${_itisLocation.latitude},${_itisLocation.longitude}';
     
-    // Polyline per il percorso completato (colore diverso)
-    if (navService.currentWaypointIndex > 0) {
-      List<LatLng> completedPoints = navService.waypoints
-          .take(navService.currentWaypointIndex + 1)
-          .map((w) => LatLng(w.latitude, w.longitude))
-          .toList();
-      
-      _polylines.add(
-        Polyline(
-          polylineId: const PolylineId('completed_route'),
-          points: completedPoints,
-          color: Colors.green,
-          width: 6,
-          startCap: Cap.roundCap,
-          endCap: Cap.roundCap,
-        ),
-      );
+    // Crea waypoints intermedi per il percorso
+    final navService = context.read<NavigationService>();
+    final waypoints = navService.waypoints
+        .where((w) => w.order % 5 == 0) // Usa solo alcuni waypoint per non sovraccaricare
+        .take(8) // Max 8 waypoint per Google Maps
+        .map((w) => '${w.latitude},${w.longitude}')
+        .join('|');
+    
+    // URL per Google Maps con navigazione
+    final googleMapsUrl = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$destination&waypoints=$waypoints&travelmode=walking',
+    );
+    
+    // URL alternativo per app Google Maps
+    final googleMapsAppUrl = Uri.parse(
+      'google.navigation:q=$destination&waypoints=$waypoints&mode=w',
+    );
+
+    try {
+      // Prova prima ad aprire l'app Google Maps
+      if (await canLaunchUrl(googleMapsAppUrl)) {
+        await launchUrl(googleMapsAppUrl, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(googleMapsUrl)) {
+        // Altrimenti usa il browser
+        await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossibile aprire Google Maps'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Errore: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final navService = context.watch<NavigationService>();
     final locationService = context.watch<LocationService>();
     
     return Scaffold(
       body: Stack(
         children: [
+          // Mappa
           GoogleMap(
-            initialCameraPosition: const CameraPosition(
-              target: LatLng(41.4766, 13.8310),
-              zoom: 15,
+            initialCameraPosition: CameraPosition(
+              target: LatLng(
+                (_stationLocation.latitude + _itisLocation.latitude) / 2,
+                (_stationLocation.longitude + _itisLocation.longitude) / 2,
+              ),
+              zoom: 14,
             ),
             markers: _markers,
             polylines: _polylines,
-            circles: _circles,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
             compassEnabled: true,
             rotateGesturesEnabled: true,
-            tiltGesturesEnabled: true,
-            mapType: MapType.normal,
             onMapCreated: (controller) {
               _mapController = controller;
-              if (locationService.currentPosition != null) {
-                controller.animateCamera(
-                  CameraUpdate.newLatLngZoom(
-                    LatLng(
-                      locationService.currentPosition!.latitude,
-                      locationService.currentPosition!.longitude,
-                    ),
-                    17.5,
-                  ),
-                );
-              }
-            },
-            onCameraMove: (_) {
-              // Disabilita il follow quando l'utente muove la mappa
-              if (_followUser) {
-                setState(() => _followUser = false);
-              }
+              _fitBoundsToRoute();
             },
           ),
           
-          // Top bar con informazioni
+          // Header con gradiente
           Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            right: 16,
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _buildBackButton(theme),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildInfoCard(theme, navService)),
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 20,
+                right: 20,
+                bottom: 20,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white,
+                    Colors.white.withOpacity(0.9),
+                    Colors.white.withOpacity(0),
                   ],
                 ),
-                const SizedBox(height: 12),
-                _buildInstructionCard(theme, navService),
-              ],
+              ),
+              child: Row(
+                children: [
+                  _buildBackButton(theme),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Anteprima Percorso',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           
-          // Bottoni di controllo mappa
+          // Bottone posizione
           Positioned(
-            top: MediaQuery.of(context).padding.top + 200,
-            right: 16,
-            child: Column(
-              children: [
-                _buildRecenterButton(theme),
-                const SizedBox(height: 12),
-                _buildZoomButtons(theme),
-              ],
-            ),
+            top: MediaQuery.of(context).padding.top + 80,
+            right: 20,
+            child: _buildLocationButton(theme, locationService),
           ),
           
-          // Bottom sheet navigazione
-          DraggableScrollableSheet(
-            initialChildSize: 0.25,
-            minChildSize: 0.15,
-            maxChildSize: 0.7,
-            builder: (context, scrollController) {
-              return NavigationBottomSheet(
-                scrollController: scrollController,
-                transportMode: navService.transportMode,
-                onRecenter: _recenterMap,
-              );
-            },
+          // Card info percorso
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _buildRouteInfoCard(theme),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(ThemeData theme, NavigationService navService) {
-    return Material(
-      color: theme.cardColor,
-      elevation: 4,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildInfoItem(
-              theme,
-              Icons.access_time,
-              navService.getFormattedETA(),
-              'ETA',
-            ),
-            Container(
-              width: 1,
-              height: 30,
-              color: theme.dividerColor,
-            ),
-            _buildInfoItem(
-              theme,
-              Icons.location_on,
-              navService.getFormattedDistance(),
-              'Distanza',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(ThemeData theme, IconData icon, String value, String label) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: theme.colorScheme.primary),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInstructionCard(ThemeData theme, NavigationService navService) {
-    return Material(
-      color: theme.colorScheme.primaryContainer,
-      elevation: 4,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.navigation,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                navService.currentInstruction.isNotEmpty
-                    ? navService.currentInstruction
-                    : 'Inizializzazione navigazione...',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onPrimaryContainer,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
   Widget _buildBackButton(ThemeData theme) {
-    return Material(
-      color: theme.cardColor,
-      elevation: 4,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: () {
-          context.read<NavigationService>().stopNavigation();
-          Navigator.of(context).pop();
-        },
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          child: Icon(
-            Icons.close_rounded,
-            color: theme.colorScheme.primary,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => Navigator.pop(context),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              Icons.arrow_back_rounded,
+              color: theme.colorScheme.primary,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRecenterButton(ThemeData theme) {
-    return Material(
-      color: _followUser ? theme.colorScheme.primary : theme.cardColor,
-      elevation: 4,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: () {
-          setState(() => _followUser = true);
-          _recenterMap();
-        },
+  Widget _buildLocationButton(ThemeData theme, LocationService locationService) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          child: Icon(
-            Icons.my_location_rounded,
-            color: _followUser ? Colors.white : theme.colorScheme.primary,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            if (locationService.currentPosition != null && _mapController != null) {
+              _mapController!.animateCamera(
+                CameraUpdate.newLatLngZoom(
+                  LatLng(
+                    locationService.currentPosition!.latitude,
+                    locationService.currentPosition!.longitude,
+                  ),
+                  16,
+                ),
+              );
+            }
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              Icons.my_location_rounded,
+              color: theme.colorScheme.primary,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildZoomButtons(ThemeData theme) {
-    return Material(
-      color: theme.cardColor,
-      elevation: 4,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(16),
+  Widget _buildRouteInfoCard(ThemeData theme) {
+    final navService = context.watch<NavigationService>();
+    
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 30,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
-            onTap: () => _mapController?.animateCamera(
-              CameraUpdate.zoomIn(),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary,
+                      theme.colorScheme.tertiary,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.directions_walk,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Stazione → ITIS E. Majorana',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${(navService.totalDistance / 1000).toStringAsFixed(1)} km • ~${((navService.totalDistance / 1.4) / 60).round()} min a piedi',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.tertiary,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withOpacity(0.4),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              child: Icon(
-                Icons.add_rounded,
-                color: theme.colorScheme.primary,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _startGoogleMapsNavigation,
+                borderRadius: BorderRadius.circular(20),
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.navigation,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Avvia Navigazione',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-          Divider(height: 1, color: theme.dividerColor),
-          InkWell(
-            onTap: () => _mapController?.animateCamera(
-              CameraUpdate.zoomOut(),
+          const SizedBox(height: 12),
+          Text(
+            'Si aprirà Google Maps con navigazione turn-by-turn',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.grey[500],
+              fontStyle: FontStyle.italic,
             ),
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              child: Icon(
-                Icons.remove_rounded,
-                color: theme.colorScheme.primary,
-              ),
-            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  void _recenterMap() {
-    final locationService = context.read<LocationService>();
-    if (locationService.currentPosition != null && _mapController != null) {
-      setState(() => _followUser = true);
-      _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(
-              locationService.currentPosition!.latitude,
-              locationService.currentPosition!.longitude,
-            ),
-            zoom: 17.5,
-            bearing: locationService.heading ?? 0,
-            tilt: 45,
+  void _fitBoundsToRoute() {
+    if (_mapController == null) return;
+    
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(
+            _itisLocation.latitude < _stationLocation.latitude
+                ? _itisLocation.latitude
+                : _stationLocation.latitude,
+            _itisLocation.longitude < _stationLocation.longitude
+                ? _itisLocation.longitude
+                : _stationLocation.longitude,
+          ),
+          northeast: LatLng(
+            _itisLocation.latitude > _stationLocation.latitude
+                ? _itisLocation.latitude
+                : _stationLocation.latitude,
+            _itisLocation.longitude > _stationLocation.longitude
+                ? _itisLocation.longitude
+                : _stationLocation.longitude,
           ),
         ),
-      );
-    }
+        100,
+      ),
+    );
   }
 
   @override
   void dispose() {
-    _locationSubscription?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
