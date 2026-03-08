@@ -3,7 +3,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../services/location_service.dart';
 import '../services/navigation_service.dart';
-import '../models/landmark.dart';
 
 class MapNavigationScreen extends StatefulWidget {
   const MapNavigationScreen({super.key});
@@ -15,8 +14,6 @@ class MapNavigationScreen extends StatefulWidget {
 class _MapNavigationScreenState extends State<MapNavigationScreen> {
   GoogleMapController? _mapController;
   bool _followUser = true;
-
-  static const LatLng _stationLocation = LatLng(41.4847222, 13.83225);
   static const LatLng _itisLocation = LatLng(41.4688333, 13.8341111);
 
   final Set<Marker> _markers = {};
@@ -34,26 +31,24 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
   Future<void> _initializeNavigation() async {
     final navService = context.read<NavigationService>();
     final locationService = context.read<LocationService>();
-
-    navService.initializeRoute(Landmark.routeCsvPoints());
     await locationService.initialize();
-    navService.startNavigation();
-    _rebuildMapData();
-
-    locationService.addListener(_handleLocationUpdate);
-    if (mounted) setState(() {});
+    final pos = locationService.currentPosition;
+    if (pos != null) {
+      await navService.startNavigation(start: pos, destination: _itisLocation);
+      _rebuildMapData();
+      locationService.addListener(_handleLocationUpdate);
+      if (mounted) setState(() {});
+    }
   }
 
-  void _handleLocationUpdate() {
+  Future<void> _handleLocationUpdate() async {
     if (!mounted) return;
-
     final locationService = context.read<LocationService>();
     final navService = context.read<NavigationService>();
     final position = locationService.currentPosition;
-
     if (position == null) return;
 
-    navService.updatePosition(position);
+    await navService.updatePosition(position);
     _rebuildMapData();
 
     if (_followUser && _mapController != null) {
@@ -79,56 +74,18 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
     _polylines.clear();
     _circles.clear();
 
-    final routePoints = navService.waypoints
-        .map((w) => LatLng(w.latitude, w.longitude))
-        .toList();
-
-    if (routePoints.isNotEmpty) {
+    if (navService.routePoints.isNotEmpty) {
       _polylines.add(
         Polyline(
-          polylineId: const PolylineId('full_route'),
-          points: routePoints,
-          color: const Color(0xFFFFB703),
-          width: 8,
-          patterns: const [],
+          polylineId: const PolylineId('active_route'),
+          points: navService.routePoints,
+          color: const Color(0xFFFF6B6B),
+          width: 9,
           startCap: Cap.roundCap,
           endCap: Cap.roundCap,
         ),
       );
     }
-
-    if (navService.currentWaypointIndex < navService.waypoints.length) {
-      final remainingPoints = navService.waypoints
-          .skip(navService.currentWaypointIndex)
-          .map((w) => LatLng(w.latitude, w.longitude))
-          .toList();
-
-      if (position != null) {
-        remainingPoints.insert(0, LatLng(position.latitude, position.longitude));
-      }
-
-      if (remainingPoints.length >= 2) {
-        _polylines.add(
-          Polyline(
-            polylineId: const PolylineId('remaining_route'),
-            points: remainingPoints,
-            color: const Color(0xFFFF6B6B),
-            width: 9,
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
-          ),
-        );
-      }
-    }
-
-    _markers.add(
-      Marker(
-        markerId: const MarkerId('station'),
-        position: _stationLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(title: 'Stazione Cassino'),
-      ),
-    );
 
     _markers.add(
       Marker(
@@ -139,39 +96,27 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
       ),
     );
 
-    final currentWaypoint = navService.currentWaypoint;
-    if (currentWaypoint != null) {
-      final waypointLatLng = LatLng(currentWaypoint.latitude, currentWaypoint.longitude);
+    final currentStep = navService.currentStep;
+    if (currentStep != null) {
       _markers.add(
         Marker(
-          markerId: const MarkerId('current_waypoint'),
-          position: waypointLatLng,
+          markerId: const MarkerId('current_step'),
+          position: currentStep.location,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
           infoWindow: InfoWindow(
-            title: currentWaypoint.name,
-            snippet: currentWaypoint.description,
+            title: 'Prossima manovra',
+            snippet: currentStep.instruction,
           ),
-        ),
-      );
-
-      _circles.add(
-        Circle(
-          circleId: const CircleId('waypoint_zone'),
-          center: waypointLatLng,
-          radius: 15,
-          fillColor: const Color(0x33FF6B6B),
-          strokeColor: const Color(0xFFFF6B6B),
-          strokeWidth: 2,
         ),
       );
     }
 
     if (position != null) {
-      final userLatLng = LatLng(position.latitude, position.longitude);
+      final user = LatLng(position.latitude, position.longitude);
       _circles.add(
         Circle(
           circleId: const CircleId('accuracy'),
-          center: userLatLng,
+          center: user,
           radius: position.accuracy,
           fillColor: const Color(0x221D4ED8),
           strokeColor: const Color(0x661D4ED8),
@@ -217,8 +162,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                     17,
                   ),
                 );
-              } else {
-                _fitBoundsToRoute();
               }
             },
             onCameraMoveStarted: () {
@@ -233,59 +176,72 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,
             right: 16,
-            child: Column(
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    _buildTopButton(
-                      icon: Icons.arrow_back_rounded,
-                      onTap: () {
-                        context.read<LocationService>().removeListener(_handleLocationUpdate);
-                        context.read<NavigationService>().stopNavigation();
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
+                _buildTopButton(
+                  icon: Icons.arrow_back_rounded,
+                  onTap: () {
+                    context.read<LocationService>().removeListener(_handleLocationUpdate);
+                    context.read<NavigationService>().stopNavigation();
+                    Navigator.pop(context);
+                  },
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              navService.currentInstruction.isEmpty
-                                  ? 'Preparazione percorso...'
-                                  : navService.currentInstruction,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF2D3436),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${navService.getFormattedDistance()} • ETA ${navService.getFormattedETA()}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
+                    child: navService.isCalculatingRoute
+                        ? Row(
+                            children: [
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2.2),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Calcolo percorso...',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                navService.currentInstruction.isEmpty
+                                    ? 'Preparazione percorso...'
+                                    : navService.currentInstruction,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF2D3436),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${navService.getFormattedDistance()} • ETA ${navService.getFormattedETA()}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
               ],
             ),
@@ -368,14 +324,18 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Navigazione interna attiva',
+                              navService.hasArrived
+                                  ? 'Destinazione raggiunta'
+                                  : 'Navigazione stradale attiva',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Waypoint ${navService.currentWaypointIndex + 1}/${navService.waypoints.isEmpty ? 0 : navService.waypoints.length}',
+                              navService.steps.isEmpty
+                                  ? 'In attesa del percorso'
+                                  : 'Manovra ${navService.currentStepIndex + 1}/${navService.steps.length}',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: Colors.grey[700],
                               ),
@@ -390,7 +350,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                     borderRadius: BorderRadius.circular(999),
                     child: LinearProgressIndicator(
                       minHeight: 10,
-                      value: navService.progress.clamp(0.0, 1.0),
+                      value: navService.progress,
                       backgroundColor: const Color(0xFFFFE5E5),
                       valueColor: const AlwaysStoppedAnimation(Color(0xFFFF6B6B)),
                     ),
@@ -465,25 +425,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _fitBoundsToRoute() {
-    if (_mapController == null) return;
-    _mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(
-            _itisLocation.latitude < _stationLocation.latitude ? _itisLocation.latitude : _stationLocation.latitude,
-            _itisLocation.longitude < _stationLocation.longitude ? _itisLocation.longitude : _stationLocation.longitude,
-          ),
-          northeast: LatLng(
-            _itisLocation.latitude > _stationLocation.latitude ? _itisLocation.latitude : _stationLocation.latitude,
-            _itisLocation.longitude > _stationLocation.longitude ? _itisLocation.longitude : _stationLocation.longitude,
-          ),
-        ),
-        90,
       ),
     );
   }
