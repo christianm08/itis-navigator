@@ -13,7 +13,7 @@ import 'services/weather_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('it_IT', null);
-  
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -21,7 +21,7 @@ Future<void> main() async {
       systemNavigationBarColor: Colors.transparent,
     ),
   );
-  
+
   runApp(const ItisNavigatorApp());
 }
 
@@ -46,37 +46,37 @@ class ItisNavigatorApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: _buildWarmTheme(),
+        theme: _buildTheme(),
         home: const HomeScreen(),
       ),
     );
   }
 
-  ThemeData _buildWarmTheme() {
-    // Colori caldi e vivaci per un'atmosfera amichevole
-    const primaryColor = Color(0xFFFF6B6B); // Rosso corallo caldo
-    const secondaryColor = Color(0xFFFFD93D); // Giallo sole
-    const accentColor = Color(0xFFFF8E53); // Arancione amichevole
-    const backgroundColor = Color(0xFFFFF8F0); // Crema caldo
-    
+  ThemeData _buildTheme() {
+    const primaryColor = Color(0xFF4F46E5);
+    const secondaryColor = Color(0xFF7C3AED);
+    const accentColor = Color(0xFF06B6D4);
+    const backgroundColor = Color(0xFFF6F7FB);
+    const textColor = Color(0xFF1F2937);
+
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.light(
+      colorScheme: const ColorScheme.light(
         primary: primaryColor,
         secondary: secondaryColor,
         tertiary: accentColor,
         surface: backgroundColor,
         background: backgroundColor,
         onPrimary: Colors.white,
-        onSecondary: Color(0xFF2D3436),
-        onSurface: Color(0xFF2D3436),
-        primaryContainer: Color(0xFFFFE5E5),
-        secondaryContainer: Color(0xFFFFF5D6),
-        tertiaryContainer: Color(0xFFFFE8D9),
+        onSecondary: Colors.white,
+        onSurface: textColor,
+        primaryContainer: Color(0xFFE0E7FF),
+        secondaryContainer: Color(0xFFEDE9FE),
+        tertiaryContainer: Color(0xFFCFFAFE),
       ),
       textTheme: GoogleFonts.poppinsTextTheme().apply(
-        bodyColor: const Color(0xFF2D3436),
-        displayColor: const Color(0xFF2D3436),
+        bodyColor: textColor,
+        displayColor: textColor,
       ),
       scaffoldBackgroundColor: backgroundColor,
       cardTheme: CardThemeData(
@@ -88,7 +88,7 @@ class ItisNavigatorApp extends StatelessWidget {
         elevation: 0,
         centerTitle: false,
         backgroundColor: Colors.transparent,
-        foregroundColor: Color(0xFF2D3436),
+        foregroundColor: textColor,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

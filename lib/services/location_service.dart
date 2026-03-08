@@ -10,50 +10,53 @@ class LocationService extends ChangeNotifier {
   double? _heading;
   StreamSubscription<Position>? _positionStreamSubscription;
   StreamSubscription<CompassEvent>? _compassStreamSubscription;
+  bool _isInitialized = false;
 
   Position? get currentPosition => _currentPosition;
   bool get isLoading => _isLoading;
   String? get error => _error;
   double? get heading => _heading;
+  bool get isInitialized => _isInitialized;
 
   Future<void> initialize() async {
+    if (_isInitialized && _currentPosition != null) return;
+
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _error = 'Servizi di localizzazione disabilitati';
-        _isLoading = false;
-        notifyListeners();
+        _error = 'Attiva i servizi di localizzazione del dispositivo';
         return;
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          _error = 'Permessi di localizzazione negati';
-          _isLoading = false;
-          notifyListeners();
-          return;
-        }
+      }
+
+      if (permission == LocationPermission.denied) {
+        _error = 'Permesso posizione negato';
+        return;
       }
 
       if (permission == LocationPermission.deniedForever) {
-        _error = 'Permessi di localizzazione permanentemente negati';
-        _isLoading = false;
-        notifyListeners();
+        _error = 'Permesso posizione negato definitivamente. Apri le impostazioni.';
         return;
       }
 
       _currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy: LocationAccuracy.best,
       );
-      
+
+      await _positionStreamSubscription?.cancel();
+      await _compassStreamSubscription?.cancel();
+
       _startLocationTracking();
       _startCompassTracking();
+      _isInitialized = true;
     } catch (e) {
       _error = 'Errore nel recupero della posizione: $e';
     } finally {
@@ -64,65 +67,45 @@ class LocationService extends ChangeNotifier {
 
   void _startLocationTracking() {
     const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5, // Aggiorna ogni 5 metri
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 1,
     );
 
     _positionStreamSubscription = Geolocator.getPositionStream(
       locationSettings: locationSettings,
     ).listen(
-      (Position position) {
+      (position) {
         _currentPosition = position;
+        _error = null;
         notifyListeners();
       },
       onError: (error) {
-        _error = 'Errore nel tracciamento: $error';
+        _error = 'Errore nel tracciamento posizione: $error';
         notifyListeners();
       },
     );
   }
 
   void _startCompassTracking() {
-    _compassStreamSubscription = FlutterCompass.events?.listen(
-      (CompassEvent event) {
-        if (event.heading != null) {
-          _heading = event.heading;
-          notifyListeners();
-        }
-      },
-    );
+    _compassStreamSubscription = FlutterCompass.events?.listen((event) {
+      if (event.heading != null) {
+        _heading = event.heading;
+        notifyListeners();
+      }
+    });
   }
 
-  Future<void> updatePosition() async {
+  Future<void> forceRefreshPosition() async {
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy: LocationAccuracy.best,
       );
+      _error = null;
       notifyListeners();
     } catch (e) {
-      _error = 'Errore nell\'aggiornamento della posizione: $e';
+      _error = 'Errore aggiornamento posizione: $e';
       notifyListeners();
     }
-  }
-
-  double calculateDistance(double lat, double lon) {
-    if (_currentPosition == null) return 0.0;
-    return Geolocator.distanceBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      lat,
-      lon,
-    );
-  }
-
-  double calculateBearing(double lat, double lon) {
-    if (_currentPosition == null) return 0.0;
-    return Geolocator.bearingBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      lat,
-      lon,
-    );
   }
 
   @override

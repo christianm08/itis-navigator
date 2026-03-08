@@ -8,7 +8,6 @@ import 'routing_service.dart';
 class NavigationService extends ChangeNotifier {
   final RoutingService _routingService = RoutingService();
 
-  String _transportMode = 'walking';
   bool _isNavigating = false;
   bool _isOffRoute = false;
   bool _hasArrived = false;
@@ -18,16 +17,16 @@ class NavigationService extends ChangeNotifier {
   double _distanceToNextStep = 0.0;
   Duration _estimatedTimeRemaining = Duration.zero;
   String _currentInstruction = '';
-  Position? _lastPosition;
+  String? _error;
   RouteDataModel? _activeRoute;
   LatLng? _destination;
+  DateTime? _lastRerouteAt;
   Timer? _navigationTimer;
 
-  static const double stepProximityThreshold = 20.0;
+  static const double stepProximityThreshold = 22.0;
   static const double offRouteThreshold = 35.0;
   static const double arrivalThreshold = 25.0;
 
-  String get transportMode => _transportMode;
   bool get isNavigating => _isNavigating;
   bool get isOffRoute => _isOffRoute;
   bool get hasArrived => _hasArrived;
@@ -37,24 +36,18 @@ class NavigationService extends ChangeNotifier {
   double get distanceToNextStep => _distanceToNextStep;
   Duration get estimatedTimeRemaining => _estimatedTimeRemaining;
   String get currentInstruction => _currentInstruction;
+  String? get error => _error;
   RouteDataModel? get activeRoute => _activeRoute;
   LatLng? get destination => _destination;
   List<LatLng> get routePoints => _activeRoute?.polylinePoints ?? const [];
   List<RouteStepModel> get steps => _activeRoute?.steps ?? const [];
-  RouteStepModel? get currentStep =>
-      steps.isNotEmpty && _currentStepIndex < steps.length ? steps[_currentStepIndex] : null;
-
+  RouteStepModel? get currentStep => steps.isNotEmpty && _currentStepIndex < steps.length ? steps[_currentStepIndex] : null;
   double get totalDistance => _activeRoute?.distanceMeters ?? 0.0;
 
   double get progress {
     final total = totalDistance;
     if (total <= 0) return 0.0;
     return ((total - _remainingDistance) / total).clamp(0.0, 1.0);
-  }
-
-  void setTransportMode(String mode) {
-    _transportMode = mode;
-    notifyListeners();
   }
 
   Future<void> startNavigation({
@@ -65,6 +58,7 @@ class NavigationService extends ChangeNotifier {
     _hasArrived = false;
     _isNavigating = true;
     _currentStepIndex = 0;
+    _error = null;
     await _buildRoute(start);
     _startNavigationTimer();
     notifyListeners();
@@ -73,29 +67,40 @@ class NavigationService extends ChangeNotifier {
   Future<void> _buildRoute(Position start) async {
     if (_destination == null) return;
     _isCalculatingRoute = true;
+    _error = null;
     notifyListeners();
 
-    final route = await _routingService.fetchWalkingRoute(
-      start: LatLng(start.latitude, start.longitude),
-      end: _destination!,
-    );
+    try {
+      final route = await _routingService.fetchWalkingRoute(
+        start: LatLng(start.latitude, start.longitude),
+        end: _destination!,
+      );
 
-    _activeRoute = route;
-    _currentStepIndex = 0;
-    _remainingDistance = route.distanceMeters;
-    _estimatedTimeRemaining = Duration(seconds: route.durationSeconds.round());
-    _currentInstruction = route.steps.isNotEmpty
-        ? route.steps.first.instruction
-        : 'Procedi verso la destinazione';
-    _isOffRoute = false;
-    _isCalculatingRoute = false;
-    notifyListeners();
+      _activeRoute = route;
+      _currentStepIndex = 0;
+      _remainingDistance = route.distanceMeters;
+      _estimatedTimeRemaining = Duration(seconds: route.durationSeconds.round());
+      _currentInstruction = route.steps.isNotEmpty ? route.steps.first.instruction : 'Procedi verso la destinazione';
+      _isOffRoute = false;
+      _lastRerouteAt = DateTime.now();
+    } catch (e) {
+      _error = 'Percorso non disponibile. Controlla API key o rete.';
+      _currentInstruction = 'Impossibile calcolare il percorso';
+      _activeRoute = null;
+    } finally {
+      _isCalculatingRoute = false;
+      notifyListeners();
+    }
   }
 
   Future<void> updatePosition(Position position) async {
-    if (!_isNavigating || _destination == null || _activeRoute == null || _isCalculatingRoute) return;
+    if (!_isNavigating || _destination == null || _isCalculatingRoute) return;
 
-    _lastPosition = position;
+    if (_activeRoute == null) {
+      await _buildRoute(position);
+      return;
+    }
+
     final destinationDistance = Geolocator.distanceBetween(
       position.latitude,
       position.longitude,
@@ -122,9 +127,12 @@ class NavigationService extends ChangeNotifier {
     final offRouteDistance = _distanceFromPositionToPolyline(position);
     _isOffRoute = offRouteDistance > offRouteThreshold;
 
-    if (_isOffRoute) {
+    final canReroute = _lastRerouteAt == null || DateTime.now().difference(_lastRerouteAt!).inSeconds >= 8;
+    if (_isOffRoute && canReroute) {
       await _buildRoute(position);
-      _currentInstruction = '⚠️ Percorso ricalcolato';
+      if (_activeRoute != null) {
+        _currentInstruction = '⚠️ Percorso ricalcolato';
+      }
     }
 
     notifyListeners();
@@ -132,7 +140,6 @@ class NavigationService extends ChangeNotifier {
 
   void _syncCurrentStep(Position position) {
     if (steps.isEmpty) return;
-
     int bestIndex = _currentStepIndex;
     double bestDistance = double.infinity;
 
@@ -168,13 +175,13 @@ class NavigationService extends ChangeNotifier {
 
   double _calculateRemainingDistance(Position position) {
     double remaining = 0.0;
-    final current = currentStep;
-    if (current != null) {
+    final step = currentStep;
+    if (step != null) {
       remaining += Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
-        current.location.latitude,
-        current.location.longitude,
+        step.location.latitude,
+        step.location.longitude,
       );
     }
     for (int i = _currentStepIndex; i < steps.length; i++) {

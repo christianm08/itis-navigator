@@ -31,14 +31,24 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
   Future<void> _initializeNavigation() async {
     final navService = context.read<NavigationService>();
     final locationService = context.read<LocationService>();
+
     await locationService.initialize();
+    await locationService.forceRefreshPosition();
     final pos = locationService.currentPosition;
-    if (pos != null) {
-      await navService.startNavigation(start: pos, destination: _itisLocation);
-      _rebuildMapData();
-      locationService.addListener(_handleLocationUpdate);
-      if (mounted) setState(() {});
+
+    if (pos == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Posizione non disponibile')),
+        );
+      }
+      return;
     }
+
+    await navService.startNavigation(start: pos, destination: _itisLocation);
+    _rebuildMapData();
+    locationService.addListener(_handleLocationUpdate);
+    if (mounted) setState(() {});
   }
 
   Future<void> _handleLocationUpdate() async {
@@ -58,7 +68,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
             target: LatLng(position.latitude, position.longitude),
             zoom: 18,
             bearing: locationService.heading ?? 0,
-            tilt: 50,
+            tilt: 45,
           ),
         ),
       );
@@ -79,7 +89,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
         Polyline(
           polylineId: const PolylineId('active_route'),
           points: navService.routePoints,
-          color: const Color(0xFFFF6B6B),
+          color: Theme.of(context).colorScheme.primary,
           width: 9,
           startCap: Cap.roundCap,
           endCap: Cap.roundCap,
@@ -102,7 +112,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
         Marker(
           markerId: const MarkerId('current_step'),
           position: currentStep.location,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           infoWindow: InfoWindow(
             title: 'Prossima manovra',
             snippet: currentStep.instruction,
@@ -210,10 +220,10 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                                 child: CircularProgressIndicator(strokeWidth: 2.2),
                               ),
                               const SizedBox(width: 12),
-                              Text(
-                                'Calcolo percorso...',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                              Expanded(
+                                child: Text(
+                                  'Calcolo percorso...',
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
@@ -222,22 +232,20 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                navService.currentInstruction.isEmpty
-                                    ? 'Preparazione percorso...'
-                                    : navService.currentInstruction,
+                                navService.currentInstruction.isEmpty ? 'Preparazione percorso...' : navService.currentInstruction,
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF2D3436),
+                                  color: const Color(0xFF1F2937),
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                '${navService.getFormattedDistance()} • ETA ${navService.getFormattedETA()}',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.grey[700],
-                                ),
+                                navService.error != null
+                                    ? navService.error!
+                                    : '${navService.getFormattedDistance()} • ETA ${navService.getFormattedETA()}',
+                                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
                               ),
                             ],
                           ),
@@ -254,18 +262,20 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                 _buildTopButton(
                   icon: Icons.my_location_rounded,
                   active: _followUser,
-                  onTap: () {
+                  onTap: () async {
                     setState(() {
                       _followUser = true;
                     });
-                    if (position != null && _mapController != null) {
+                    await locationService.forceRefreshPosition();
+                    final current = locationService.currentPosition;
+                    if (current != null && _mapController != null) {
                       _mapController!.animateCamera(
                         CameraUpdate.newCameraPosition(
                           CameraPosition(
-                            target: LatLng(position.latitude, position.longitude),
+                            target: LatLng(current.latitude, current.longitude),
                             zoom: 18,
                             bearing: locationService.heading ?? 0,
-                            tilt: 50,
+                            tilt: 45,
                           ),
                         ),
                       );
@@ -311,9 +321,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
-                          ),
+                          gradient: LinearGradient(colors: [theme.colorScheme.primary, theme.colorScheme.secondary]),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: const Icon(Icons.route_rounded, color: Colors.white),
@@ -324,21 +332,13 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              navService.hasArrived
-                                  ? 'Destinazione raggiunta'
-                                  : 'Navigazione stradale attiva',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                              navService.hasArrived ? 'Destinazione raggiunta' : 'Navigazione attiva',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              navService.steps.isEmpty
-                                  ? 'In attesa del percorso'
-                                  : 'Manovra ${navService.currentStepIndex + 1}/${navService.steps.length}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[700],
-                              ),
+                              navService.steps.isEmpty ? 'In attesa del percorso' : 'Manovra ${navService.currentStepIndex + 1}/${navService.steps.length}',
+                              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
                             ),
                           ],
                         ),
@@ -351,16 +351,16 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                     child: LinearProgressIndicator(
                       minHeight: 10,
                       value: navService.progress,
-                      backgroundColor: const Color(0xFFFFE5E5),
-                      valueColor: const AlwaysStoppedAnimation(Color(0xFFFF6B6B)),
+                      backgroundColor: const Color(0xFFE5E7EB),
+                      valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
                     ),
                   ),
                   const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildStatChip(Icons.straighten_rounded, navService.getFormattedDistance()),
-                      _buildStatChip(Icons.schedule_rounded, navService.getFormattedETA()),
+                      _buildStatChip(theme, Icons.straighten_rounded, navService.getFormattedDistance()),
+                      _buildStatChip(theme, Icons.schedule_rounded, navService.getFormattedETA()),
                     ],
                   ),
                 ],
@@ -372,14 +372,10 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
     );
   }
 
-  Widget _buildTopButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    bool active = false,
-  }) {
+  Widget _buildTopButton({required IconData icon, required VoidCallback onTap, bool active = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: active ? const Color(0xFFFF6B6B) : Colors.white,
+        color: active ? Theme.of(context).colorScheme.primary : Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -396,33 +392,27 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
           borderRadius: BorderRadius.circular(18),
           child: Padding(
             padding: const EdgeInsets.all(14),
-            child: Icon(
-              icon,
-              color: active ? Colors.white : const Color(0xFFFF6B6B),
-            ),
+            child: Icon(icon, color: active ? Colors.white : Theme.of(context).colorScheme.primary),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatChip(IconData icon, String label) {
+  Widget _buildStatChip(ThemeData theme, IconData icon, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3E8),
+        color: theme.colorScheme.primaryContainer.withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: const Color(0xFFFF8E53)),
+          Icon(icon, size: 18, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF2D3436),
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
           ),
         ],
       ),
