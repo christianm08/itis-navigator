@@ -1,3 +1,3 @@
 class LocalApiKeys {
-  static const String openRouteServiceApiKey = 'TEMP_REPLACE_ME';
+  static const String openRouteServiceApiKey = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjU1Zjk4MTdjN2U0MDQyZTA5YjdmNTM3ODVhZDNiNDFiIiwiaCI6Im11cm11cjY0In0';
 }
