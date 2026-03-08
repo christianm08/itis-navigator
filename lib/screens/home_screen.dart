@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -16,15 +17,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _currentTime = '';
   String _currentDate = '';
+  Timer? _clockTimer;
 
   @override
   void initState() {
     super.initState();
     _initializeServices();
     _updateTime();
-    // Aggiorna l'ora ogni secondo
-    Stream.periodic(const Duration(seconds: 1)).listen((_) {
-      _updateTime();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) _updateTime();
     });
   }
 
@@ -32,30 +33,40 @@ class _HomeScreenState extends State<HomeScreen> {
     final now = DateTime.now();
     final timeFormat = DateFormat('HH:mm:ss');
     final dateFormat = DateFormat('EEEE, d MMMM yyyy', 'it_IT');
-    
+
     setState(() {
       _currentTime = timeFormat.format(now);
-      _currentDate = dateFormat.format(now);
+      _currentDate = _capitalize(dateFormat.format(now));
     });
   }
 
   Future<void> _initializeServices() async {
     final locationService = context.read<LocationService>();
     final weatherService = context.read<WeatherService>();
-    
+
     await locationService.initialize();
     await weatherService.fetchWeather();
+  }
+
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // Header con saluto e ora
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.only(
@@ -89,12 +100,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    _currentTime,
-                    style: theme.textTheme.displayLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 56,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _currentTime,
+                      maxLines: 1,
+                      style: theme.textTheme.displayLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 56,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -109,21 +125,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-
-          // Contenuto principale
           SliverPadding(
             padding: const EdgeInsets.all(24),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Card Meteo
                 _buildWeatherCard(theme),
                 const SizedBox(height: 20),
-                
-                // Navigazione rapida
                 _buildNavigationCard(theme),
                 const SizedBox(height: 20),
-                
-                // Info Scuola
                 _buildSchoolInfoCard(theme),
                 const SizedBox(height: 20),
               ]),
@@ -165,56 +174,89 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           child: weatherService.isLoading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ? const SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                )
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 360;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 12,
                           children: [
-                            Text(
-                              'Meteo a Cassino',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: isCompact ? constraints.maxWidth : constraints.maxWidth * 0.62,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Meteo a Cassino',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    weatherService.description,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: Colors.white.withOpacity(0.9),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 8),
                             Text(
-                              weatherService.description,
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: Colors.white.withOpacity(0.9),
-                              ),
+                              weatherService.icon,
+                              style: TextStyle(fontSize: isCompact ? 48 : 64),
                             ),
                           ],
                         ),
-                        Text(
-                          weatherService.icon,
-                          style: const TextStyle(fontSize: 64),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '${weatherService.temperature}°C',
+                                style: theme.textTheme.displayLarge?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: isCompact ? 40 : 48,
+                                ),
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                _buildWeatherDetail(theme, '💨', '${weatherService.windSpeed.toStringAsFixed(1)} km/h'),
+                                _buildWeatherDetail(theme, '💧', '${weatherService.humidity}%'),
+                              ],
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Text(
-                          '${weatherService.temperature}°C',
-                          style: theme.textTheme.displayLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 48,
-                          ),
-                        ),
-                        const Spacer(),
-                        _buildWeatherDetail(theme, '💨', '${weatherService.windSpeed.toStringAsFixed(1)} km/h'),
-                        const SizedBox(width: 16),
-                        _buildWeatherDetail(theme, '💧', '${weatherService.humidity}%'),
-                      ],
-                    ),
-                  ],
+                    );
+                  },
                 ),
         );
       },
@@ -229,6 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(icon, style: const TextStyle(fontSize: 20)),
           const SizedBox(width: 4),
@@ -410,11 +453,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Visita il Sito Web',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          'Visita il Sito Web',
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
