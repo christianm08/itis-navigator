@@ -44,8 +44,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initializeServices() async {
     final locationService = context.read<LocationService>();
     final weatherService = context.read<WeatherService>();
-    await locationService.initialize();
-    await weatherService.fetchWeather();
+    
+    // Inizializza GPS con gestione errori per evitare crash
+    try {
+      await locationService.initialize();
+    } catch (e) {
+      debugPrint('⚠️ Errore inizializzazione GPS: $e');
+      // L'app continua a funzionare anche senza GPS
+      // Bus Cotral e altre funzionalità rimangono disponibili
+    }
+    
+    // Inizializza meteo
+    try {
+      await weatherService.fetchWeather();
+    } catch (e) {
+      debugPrint('⚠️ Errore caricamento meteo: $e');
+    }
   }
 
   String _capitalize(String text) {
