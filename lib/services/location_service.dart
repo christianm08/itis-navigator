@@ -48,7 +48,10 @@ class LocationService extends ChangeNotifier {
       }
 
       _currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+        ),
       );
 
       await _positionStreamSubscription?.cancel();
@@ -98,7 +101,10 @@ class LocationService extends ChangeNotifier {
   Future<void> forceRefreshPosition() async {
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+        ),
       );
       _error = null;
       notifyListeners();

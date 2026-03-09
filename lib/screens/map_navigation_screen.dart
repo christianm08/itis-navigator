@@ -205,7 +205,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.12),
+                          color: Colors.black.withValues(alpha: 0.12),
                           blurRadius: 16,
                           offset: const Offset(0, 8),
                         ),
@@ -306,7 +306,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.14),
+                    color: Colors.black.withValues(alpha: 0.14),
                     blurRadius: 24,
                     offset: const Offset(0, 10),
                   ),
@@ -379,7 +379,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 14,
             offset: const Offset(0, 8),
           ),
@@ -403,7 +403,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withOpacity(0.6),
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
