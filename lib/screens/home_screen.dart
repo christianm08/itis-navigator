@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/location_service.dart';
 import '../services/weather_service.dart';
 import 'map_navigation_screen.dart';
+import 'bus_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -138,6 +139,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildWeatherCard(theme),
                 const SizedBox(height: 20),
                 _buildNavigationCard(theme),
+                const SizedBox(height: 20),
+                _buildBusCard(theme),
                 const SizedBox(height: 20),
                 _buildSchoolInfoCard(theme),
                 const SizedBox(height: 20),
@@ -350,6 +353,76 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 Icon(Icons.arrow_forward_ios, color: theme.colorScheme.primary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBusCard(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF6B6B).withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const BusScreen()),
+            );
+          },
+          borderRadius: BorderRadius.circular(28),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.directions_bus_rounded, color: Colors.white, size: 32),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Bus Cotral',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Orari in tempo reale per Cassino',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios, color: Colors.white),
               ],
             ),
           ),
