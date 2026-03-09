@@ -395,9 +395,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          _buildInfoRow(theme, Icons.location_on_outlined, 'Via S. Pertini, Cassino'),
+          _buildInfoRow(theme, Icons.location_on_outlined, ' Via S. Angelo, 2 (Loc. Folcara) - 03043 Cassino (FR)'),
           const SizedBox(height: 12),
-          _buildInfoRow(theme, Icons.mail_outline_rounded, 'fris007004@istruzione.it'),
+          _buildInfoRow(theme, Icons.mail_outline_rounded, 'frtf020002@istruzione.it'),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
