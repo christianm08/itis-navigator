@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/local_api_keys.dart';
 
 class WeatherService extends ChangeNotifier {
   bool _isLoading = false;
@@ -9,6 +10,9 @@ class WeatherService extends ChangeNotifier {
   String _icon = '☀️';
   int _humidity = 0;
   double _windSpeed = 0.0;
+  double _pressure = 0.0;
+  double _rainRate = 0.0;
+  double _dewPoint = 0.0;
 
   bool get isLoading => _isLoading;
   String get temperature => _temperature;
@@ -16,44 +20,69 @@ class WeatherService extends ChangeNotifier {
   String get icon => _icon;
   int get humidity => _humidity;
   double get windSpeed => _windSpeed;
+  double get pressure => _pressure;
+  double get rainRate => _rainRate;
+  double get dewPoint => _dewPoint;
+
+  // Stazione meteorologica ITIS Majorana - Cassino
+  static const String _stationCode = 'laz543';
 
   Future<void> fetchWeather() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      // Coordinate di Cassino
-      const lat = 41.4897;
-      const lon = 13.8283;
-      const apiKey = 'YOUR_API_KEY'; // Sostituisci con la tua API key di OpenWeatherMap
-      
-      // Se non hai una API key, usa dati mock
-      if (apiKey == 'YOUR_API_KEY') {
+      // Se il token non è configurato, usa dati mock
+      if (LocalApiKeys.meteoNetworkToken == 'YOUR_METEONETWORK_TOKEN') {
+        debugPrint('⚠️ Token MeteoNetwork non configurato, uso dati mock');
         _useMockData();
         return;
       }
 
+      // Endpoint MeteoNetwork per dati real-time della stazione LAZ543
       final url = Uri.parse(
-        'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric&lang=it',
+        'https://api.meteonetwork.it/v3/data-realtime/$_stationCode',
       );
 
-      final response = await http.get(url).timeout(
-        const Duration(seconds: 10),
-      );
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer ${LocalApiKeys.meteoNetworkToken}',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final List<dynamic> data = json.decode(response.body);
         
-        _temperature = data['main']['temp'].toStringAsFixed(0);
-        _description = _capitalizeFirst(data['weather'][0]['description']);
-        _humidity = data['main']['humidity'];
-        _windSpeed = (data['wind']['speed'] * 3.6); // Converti m/s in km/h
-        _icon = _getWeatherIcon(data['weather'][0]['main']);
+        if (data.isNotEmpty) {
+          final stationData = data[0];
+          
+          // Dati dalla stazione ITIS
+          _temperature = stationData['temperature']?.toStringAsFixed(1) ?? '--';
+          _humidity = stationData['rh']?.toInt() ?? 0;
+          _windSpeed = stationData['wind_speed']?.toDouble() ?? 0.0;
+          _pressure = stationData['smlp']?.toDouble() ?? 0.0;
+          _rainRate = stationData['rain_rate']?.toDouble() ?? 0.0;
+          _dewPoint = stationData['dew_point']?.toDouble() ?? 0.0;
+          
+          // Descrizione automatica basata sui dati
+          _description = _generateDescription();
+          _icon = _getWeatherIcon();
+          
+          debugPrint('✅ Dati meteo ricevuti dalla stazione ITIS LAZ543');
+        } else {
+          throw Exception('Nessun dato disponibile dalla stazione');
+        }
+      } else if (response.statusCode == 401) {
+        debugPrint('❌ Token MeteoNetwork non valido o scaduto');
+        _useMockData();
       } else {
+        debugPrint('❌ Errore API MeteoNetwork: ${response.statusCode}');
         _useMockData();
       }
     } catch (e) {
-      debugPrint('Errore nel recupero meteo: $e');
+      debugPrint('❌ Errore nel recupero meteo: $e');
       _useMockData();
     } finally {
       _isLoading = false;
@@ -61,53 +90,71 @@ class WeatherService extends ChangeNotifier {
     }
   }
 
-  void _useMockData() {
-    // Dati di esempio quando l'API non è disponibile
-    final hour = DateTime.now().hour;
-    if (hour >= 6 && hour < 12) {
-      _temperature = '15';
-      _description = 'Sereno';
-      _icon = '☀️';
-    } else if (hour >= 12 && hour < 18) {
-      _temperature = '22';
-      _description = 'Parzialmente nuvoloso';
-      _icon = '⛅';
-    } else {
-      _temperature = '18';
-      _description = 'Sereno';
-      _icon = '🌙';
+  String _generateDescription() {
+    // Descrizione automatica basata sui parametri meteo
+    if (_rainRate > 0) {
+      if (_rainRate > 10) return 'Pioggia intensa';
+      if (_rainRate > 2) return 'Pioggia moderata';
+      return 'Pioggia leggera';
     }
-    _humidity = 65;
-    _windSpeed = 12.5;
+    
+    if (_humidity > 85) return 'Umido';
+    if (_humidity < 30) return 'Secco';
+    
+    final hour = DateTime.now().hour;
+    if (_windSpeed > 20) {
+      return 'Ventoso';
+    } else if (hour >= 6 && hour < 20) {
+      return 'Sereno';
+    } else {
+      return 'Notte serena';
+    }
   }
 
-  String _getWeatherIcon(String condition) {
-    switch (condition.toLowerCase()) {
-      case 'clear':
-        return '☀️';
-      case 'clouds':
-        return '☁️';
-      case 'rain':
-      case 'drizzle':
-        return '🌧️';
-      case 'thunderstorm':
-        return '⛈️';
-      case 'snow':
-        return '❄️';
-      case 'mist':
-      case 'fog':
-        return '🌫️';
-      default:
-        return '☀️';
+  String _getWeatherIcon() {
+    // Icona basata su pioggia e orario
+    if (_rainRate > 0) {
+      if (_rainRate > 10) return '⛈️';
+      return '🌧️';
     }
+    
+    final hour = DateTime.now().hour;
+    if (_windSpeed > 20) return '💨';
+    
+    if (hour >= 6 && hour < 8) return '🌅';
+    if (hour >= 8 && hour < 18) return '☀️';
+    if (hour >= 18 && hour < 20) return '🌇';
+    return '🌙';
+  }
+
+  void _useMockData() {
+    // Dati realistici di esempio (simili a quelli della stazione)
+    final hour = DateTime.now().hour;
+    if (hour >= 6 && hour < 12) {
+      _temperature = '15.2';
+      _description = 'Sereno';
+      _icon = '☀️';
+      _humidity = 75;
+      _windSpeed = 3.5;
+    } else if (hour >= 12 && hour < 18) {
+      _temperature = '18.2';
+      _description = 'Sereno';
+      _icon = '☀️';
+      _humidity = 81;
+      _windSpeed = 2.0;
+    } else {
+      _temperature = '14.5';
+      _description = 'Notte serena';
+      _icon = '🌙';
+      _humidity = 85;
+      _windSpeed = 1.5;
+    }
+    _pressure = 1020.1;
+    _rainRate = 0.0;
+    _dewPoint = 14.9;
   }
 
   Future<void> getWeatherForCassino() async {
     await fetchWeather();
-  }
-
-  String _capitalizeFirst(String text) {
-    if (text.isEmpty) return text;
-    return text[0].toUpperCase() + text.substring(1);
   }
 }
