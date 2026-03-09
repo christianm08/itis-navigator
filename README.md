@@ -6,6 +6,7 @@
 
 - 🗺️ **Navigazione GPS in tempo reale** dalla tua posizione all'ITIS
 - 🌦️ **Meteo in tempo reale** dalla stazione meteorologica ufficiale della scuola (LAZ543)
+- 🚌 **Tracking bus Cotral** con orari in tempo reale e posizioni GPS
 - 📍 **Indicazioni passo-passo** con aggiornamento automatico della posizione
 - 📅 **Orologio dinamico** con data e ora sempre aggiornati
 - 🏫 **Informazioni sulla scuola** con link diretto al sito ufficiale
@@ -131,12 +132,40 @@ L'app si collega alla stazione meteorologica ufficiale installata all'ITIS Major
 - Tasso di precipitazione (mm/h)
 - Punto di rugiada (°C)
 
+## 🚌 Tracking Bus Cotral
+
+L'app integra le **API ufficiali Cotral** per il tracking in tempo reale dei bus di Cassino:
+
+- **API Base:** `http://travel.mob.cotralspa.it:7777/beApp`
+- **Nessuna registrazione richiesta** - API pubbliche e gratuite
+- **Formato dati:** XML (convertito automaticamente in JSON dall'app)
+
+**Funzionalità disponibili:**
+- 🚏 Lista fermate Cotral di Cassino
+- 📍 Paline disponibili per ogni fermata
+- ⏱️ Orari bus in tempo reale con countdown
+- 🔴 Indicatore ritardi
+- 🟢 Stato real-time vs programmato
+- 🔄 Auto-refresh ogni 30 secondi
+
+**Fermate principali Cassino:**
+- Cassino - Autostazione (codice: 70539)
+- Altre fermate disponibili nell'app
+
+**Dati in tempo reale:**
+- Tempo stimato di arrivo (ETA)
+- Ritardi e anticipi
+- Codice veicolo
+- Percorso del bus
+- Stato GPS del veicolo
+
 ## 📦 Dipendenze Principali
 
 - `google_maps_flutter` - Mappe e navigazione
 - `geolocator` - Geolocalizzazione GPS
 - `provider` - State management
 - `http` - Chiamate API
+- `xml2js` - Parser XML per API Cotral
 - `intl` - Internazionalizzazione e formattazione date
 - `url_launcher` - Apertura link esterni
 
@@ -144,6 +173,50 @@ L'app si collega alla stazione meteorologica ufficiale installata all'ITIS Major
 
 - ✅ Android
 - ✅ iOS
+
+## 🏗️ Struttura Progetto
+
+```
+lib/
+├── config/
+│   └── local_api_keys.dart          # Configurazione API keys
+├── models/
+│   └── cotral_models.dart           # Modelli dati Cotral (Stop, Pole, Transit)
+├── services/
+│   ├── weather_service.dart         # Servizio meteo MeteoNetwork
+│   ├── cotral_service.dart          # Servizio bus Cotral
+│   └── navigation_service.dart      # Servizio navigazione Google Maps
+├── screens/
+│   ├── home_screen.dart             # Schermata principale
+│   ├── bus_screen.dart              # Schermata tracking bus Cotral
+│   └── navigation_screen.dart       # Schermata navigazione GPS
+└── main.dart                        # Entry point
+```
+
+## 🎨 Features in Dettaglio
+
+### Schermata Home
+- 🕐 Orologio dinamico con data
+- 🌡️ Widget meteo dalla stazione ITIS LAZ543
+- 🗺️ Pulsante "Naviga verso ITIS"
+- 🚌 Card bus Cotral con prossimi arrivi
+- ℹ️ Informazioni scuola
+
+### Schermata Navigazione
+- 📍 Tracking GPS in tempo reale
+- 🗺️ Mappa Google Maps con route
+- 📏 Distanza e tempo stimato
+- 🧭 Indicazioni passo-passo
+- 🎯 Aggiornamento automatico posizione
+
+### Schermata Bus Cotral
+- 🚏 Selezione fermata Cassino
+- 📍 Selezione palina specifica
+- ⏱️ Lista transiti con countdown
+- 🟢 Indicatore tempo reale/programmato
+- 🔴 Visualizzazione ritardi
+- 🔄 Auto-refresh ogni 30 secondi
+- ⬇️ Pull-to-refresh manuale
 
 ## 👥 Contribuire
 
@@ -158,7 +231,9 @@ Contribuzioni benvenute! Per favore:
 
 Questo progetto è distribuito sotto licenza MIT.
 
-I dati meteorologici di MeteoNetwork sono distribuiti sotto licenza **CC-BY 4.0** (Open Data).
+**Dati di terze parti:**
+- Dati meteorologici MeteoNetwork: licenza **CC-BY 4.0** (Open Data)
+- Dati Cotral: API pubbliche ufficiali Cotral S.p.A.
 
 ## 🏫 Contatti
 
@@ -166,6 +241,9 @@ I dati meteorologici di MeteoNetwork sono distribuiti sotto licenza **CC-BY 4.0*
 - Sito web: [itiscassino.edu.it](https://itiscassino.edu.it/)
 - Email: fris007004@istruzione.it
 - Indirizzo: Via S. Pertini, Cassino (FR)
+
+**Developer:**
+- GitHub: [@christianm08](https://github.com/christianm08)
 
 ---
 
