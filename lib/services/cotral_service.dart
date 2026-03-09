@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:xml2js/xml2js.dart' as xml2js;
+import 'package:xml/xml.dart' as xml;
 import '../models/cotral_models.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -146,9 +147,7 @@ class CotralService extends ChangeNotifier {
   /// Converte XML in JSON
   Future<Map<String, dynamic>> _xmlToJson(String xmlString) async {
     try {
-      final builder = xml2js.XmlBuilder();
-      final parser = xml2js.XmlParser();
-      final document = parser.parse(xmlString);
+      final document = xml.XmlDocument.parse(xmlString);
       
       // Conversione semplificata XML → Map
       return _xmlNodeToMap(document.rootElement);
@@ -163,7 +162,7 @@ class CotralService extends ChangeNotifier {
     
     if (node.children != null) {
       for (final child in node.children) {
-        if (child is xml2js.XmlElement) {
+        if (child is xml.XmlElement) {
           final name = child.name.local;
           final value = child.text.trim();
           
@@ -212,13 +211,13 @@ class CotralService extends ChangeNotifier {
     final dLat = _toRadians(pos2.latitude - pos1.latitude);
     final dLon = _toRadians(pos2.longitude - pos1.longitude);
     
-    final a = (dLat / 2).sin() * (dLat / 2).sin() +
-        _toRadians(pos1.latitude).cos() *
-        _toRadians(pos2.latitude).cos() *
-        (dLon / 2).sin() *
-        (dLon / 2).sin();
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(pos1.latitude)) *
+        cos(_toRadians(pos2.latitude)) *
+        sin(dLon / 2) *
+        sin(dLon / 2);
     
-    final c = 2 * a.sqrt().asin();
+    final c = 2 * asin(sqrt(a));
     return R * c;
   }
 
