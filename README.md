@@ -180,15 +180,11 @@ L'app integra le **API ufficiali Cotral** per il tracking in tempo reale dei bus
 lib/
 ├── config/
 │   └── local_api_keys.dart          # Configurazione API keys
-├── models/
-│   └── cotral_models.dart           # Modelli dati Cotral (Stop, Pole, Transit)
 ├── services/
 │   ├── weather_service.dart         # Servizio meteo MeteoNetwork
-│   ├── cotral_service.dart          # Servizio bus Cotral
 │   └── navigation_service.dart      # Servizio navigazione Google Maps
 ├── screens/
 │   ├── home_screen.dart             # Schermata principale
-│   ├── bus_screen.dart              # Schermata tracking bus Cotral
 │   └── navigation_screen.dart       # Schermata navigazione GPS
 └── main.dart                        # Entry point
 ```
