@@ -36,7 +36,7 @@ class _BusScreenState extends State<BusScreen> {
       
       // Carica i transiti della prima palina
       if (cotralService.poles.isNotEmpty) {
-        _selectedPoleCode = cotralService.poles.first.code;
+        setState(() => _selectedPoleCode = cotralService.poles.first.code);
         await cotralService.getTransits(_selectedPoleCode!);
       }
     }
@@ -85,13 +85,15 @@ class _BusScreenState extends State<BusScreen> {
       ),
       body: Consumer<CotralService>(
         builder: (context, service, child) {
-          if (service.isLoading && service.currentTransits == null) {
+          // Mostra loading SOLO se non ci sono dati
+          if (service.isLoading && service.stops.isEmpty) {
             return const Center(
               child: CircularProgressIndicator(color: Color(0xFF20B2AA)),
             );
           }
 
-          if (service.error != null) {
+          // Mostra errore SOLO se non ci sono fermate da visualizzare
+          if (service.stops.isEmpty && !service.isLoading) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -99,13 +101,16 @@ class _BusScreenState extends State<BusScreen> {
                   const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(
-                    service.error!,
+                    service.error ?? 'Nessuna fermata disponibile',
                     style: const TextStyle(color: Colors.white70),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _loadBusData,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF20B2AA),
+                    ),
                     child: const Text('Riprova'),
                   ),
                 ],
@@ -122,13 +127,18 @@ class _BusScreenState extends State<BusScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // Mostra banner info se c'è un messaggio
+                if (service.error != null)
+                  _buildInfoBanner(service.error!),
+                if (service.error != null) const SizedBox(height: 16),
+                
                 _buildStopSelector(service),
                 const SizedBox(height: 16),
                 _buildPoleSelector(service),
                 const SizedBox(height: 24),
                 if (service.currentTransits != null)
                   _buildTransitsList(service.currentTransits!)
-                else
+                else if (_selectedPoleCode != null)
                   _buildEmptyState(),
               ],
             ),
@@ -138,18 +148,32 @@ class _BusScreenState extends State<BusScreen> {
     );
   }
 
+  Widget _buildInfoBanner(String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.orange),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStopSelector(CotralService service) {
     if (service.stops.isEmpty) {
-      return const Card(
-        color: Color(0xFF16213E),
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'Nessuna fermata trovata per Cassino',
-            style: TextStyle(color: Colors.white70),
-          ),
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     return Card(
@@ -177,7 +201,7 @@ class _BusScreenState extends State<BusScreen> {
                 'Codice: ${stop.code}',
                 style: const TextStyle(color: Colors.white60),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white60),
+              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white60, size: 16),
               onTap: () async {
                 await service.getPoles(stop.code);
               },
@@ -262,6 +286,7 @@ class _BusScreenState extends State<BusScreen> {
   Widget _buildTransitCard(BusTransit transit) {
     final minutes = transit.getMinutesUntilArrival();
     final isArriving = minutes <= 5;
+    final isSoon = minutes <= 15;
 
     return Card(
       color: const Color(0xFF16213E),
@@ -275,13 +300,19 @@ class _BusScreenState extends State<BusScreen> {
               height: 60,
               decoration: BoxDecoration(
                 color: isArriving
-                    ? Colors.orange.withOpacity(0.2)
-                    : const Color(0xFF20B2AA).withOpacity(0.2),
+                    ? Colors.red.withOpacity(0.2)
+                    : isSoon
+                        ? Colors.orange.withOpacity(0.2)
+                        : const Color(0xFF20B2AA).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                isArriving ? Icons.directions_bus : Icons.schedule,
-                color: isArriving ? Colors.orange : const Color(0xFF20B2AA),
+                Icons.directions_bus,
+                color: isArriving
+                    ? Colors.red
+                    : isSoon
+                        ? Colors.orange
+                        : const Color(0xFF20B2AA),
                 size: 32,
               ),
             ),
@@ -308,14 +339,25 @@ class _BusScreenState extends State<BusScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        transit.isRealTime ? 'Tempo reale' : 'Programmato',
-                        style: TextStyle(
+                        transit.vehicleCode,
+                        style: const TextStyle(
                           fontSize: 12,
-                          color: transit.isRealTime ? Colors.green : Colors.grey,
+                          color: Colors.grey,
                         ),
                       ),
                     ],
                   ),
+                  if (transit.delay != 'In orario' && transit.delay != '00:00:00')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        transit.delay,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -325,19 +367,22 @@ class _BusScreenState extends State<BusScreen> {
                 Text(
                   transit.getFormattedArrivalTime(),
                   style: GoogleFonts.poppins(
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: isArriving ? Colors.orange : const Color(0xFF20B2AA),
+                    color: isArriving
+                        ? Colors.red
+                        : isSoon
+                            ? Colors.orange
+                            : const Color(0xFF20B2AA),
                   ),
                 ),
-                if (transit.delay != '00:00:00')
-                  Text(
-                    'Ritardo: ${transit.delay}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.red,
-                    ),
+                Text(
+                  DateFormat('HH:mm').format(transit.estimatedTime),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white54,
                   ),
+                ),
               ],
             ),
           ],
@@ -348,29 +393,32 @@ class _BusScreenState extends State<BusScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.info_outline,
-            size: 64,
-            color: Colors.white38,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Nessun bus in arrivo',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              color: Colors.white70,
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.schedule,
+              size: 64,
+              color: Colors.white38,
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Seleziona una palina per vedere i transiti',
-            style: TextStyle(color: Colors.white54),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              'Nessun bus in arrivo',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                color: Colors.white70,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Prova a selezionare un\'altra palina\no riprova più tardi',
+              style: TextStyle(color: Colors.white54),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
