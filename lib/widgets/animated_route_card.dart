@@ -76,8 +76,8 @@ class _AnimatedRouteCardState extends State<AnimatedRouteCard>
               gradient: _isPressed
                   ? LinearGradient(
                       colors: [
-                        widget.color.withOpacity(0.2),
-                        widget.color.withOpacity(0.1),
+                        widget.color.withValues(alpha: 0.2),
+                        widget.color.withValues(alpha: 0.1),
                       ],
                     )
                   : null,
@@ -87,7 +87,7 @@ class _AnimatedRouteCardState extends State<AnimatedRouteCard>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: widget.color.withOpacity(0.1),
+                    color: widget.color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
@@ -110,7 +110,7 @@ class _AnimatedRouteCardState extends State<AnimatedRouteCard>
                       Text(
                         widget.description,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -152,8 +152,8 @@ class _AnimatedRouteCardState extends State<AnimatedRouteCard>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.05)
-            : theme.colorScheme.primary.withOpacity(0.05),
+            ? Colors.white.withValues(alpha: 0.05)
+            : theme.colorScheme.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

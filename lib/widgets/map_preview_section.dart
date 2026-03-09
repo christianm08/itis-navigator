@@ -20,7 +20,7 @@ class MapPreviewSection extends StatelessWidget {
 
     return Card(
       elevation: 6,
-      shadowColor: Colors.black.withOpacity(0.25),
+      shadowColor: Colors.black.withValues(alpha: 0.25),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -55,8 +55,8 @@ class MapPreviewSection extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.black.withOpacity(0.00),
-                      Colors.black.withOpacity(0.35),
+                      Colors.black.withValues(alpha: 0.00),
+                      Colors.black.withValues(alpha: 0.35),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -72,11 +72,11 @@ class MapPreviewSection extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: cs.surface.withOpacity(0.82),
+                  color: cs.surface.withValues(alpha: 0.82),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.18),
+                      color: Colors.black.withValues(alpha: 0.18),
                       blurRadius: 14,
                       offset: const Offset(0, 8),
                     ),
@@ -169,11 +169,11 @@ class _OpenMapButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.92),
+              color: color.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.28),
+                  color: Colors.black.withValues(alpha: 0.28),
                   blurRadius: 18,
                   offset: const Offset(0, 10),
                 ),
