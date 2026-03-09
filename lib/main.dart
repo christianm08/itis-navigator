@@ -9,7 +9,6 @@ import 'screens/home_screen.dart';
 import 'services/location_service.dart';
 import 'services/navigation_service.dart';
 import 'services/weather_service.dart';
-import 'services/cotral_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +35,6 @@ class ItisNavigatorApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocationService()),
         ChangeNotifierProvider(create: (_) => NavigationService()),
         ChangeNotifierProvider(create: (_) => WeatherService()),
-        ChangeNotifierProvider(create: (_) => CotralService()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
