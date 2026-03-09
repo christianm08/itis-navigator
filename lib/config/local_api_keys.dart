@@ -4,5 +4,5 @@ class LocalApiKeys {
   // MeteoNetwork API token
   // Registrati gratuitamente su https://www.meteonetwork.it/supporto/meteonetwork-api/
   // Ottieni il token da: https://api.meteonetwork.it/documentation.html (sezione /login)
-  static const String meteoNetworkToken = '33033|CGRqoQMeyjIGS4uIedT3JqM1kBt5SDVu4eHL6Em98f9f71e6';
+  static const String meteoNetworkToken = '33032|rLBU71FdXcqzxkcLVvyJRi1VPB17AwLxrUfr2Zq6';
 }
