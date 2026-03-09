@@ -14,12 +14,12 @@ dependencies:
     sdk: flutter
   # UI
   cupertino_icons: ^1.0.6
-  google_fonts: ^6.1.0
+  google_fonts: ^8.0.2
   animations: ^2.0.0
   
   # Maps & Location
   google_maps_flutter: ^2.5.0
-  geolocator: ^10.1.0
+  geolocator: ^14.0.2
   flutter_compass: ^0.8.0
   
   # HTTP & APIs
@@ -35,8 +35,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.13.1
-  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_lints: ^6.0.0
 
 flutter:
   generate: true

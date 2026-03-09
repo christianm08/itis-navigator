@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'glass_card.dart';
 
 class NavigationBottomSheet extends StatelessWidget {
   final ScrollController scrollController;

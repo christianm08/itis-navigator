@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../services/weather_service.dart';
 import 'map_screen.dart';
@@ -23,6 +24,7 @@ class _OnePageHomeScreenState extends State<OnePageHomeScreen> {
   void initState() {
     super.initState();
     _clock = Stream<DateTime>.periodic(const Duration(seconds: 1), (_) => DateTime.now());
+    _weather.getWeatherForCassino();
   }
 
   @override
@@ -97,26 +99,15 @@ class _OnePageHomeScreenState extends State<OnePageHomeScreen> {
                   const SizedBox(height: 12),
 
                   // Meteo
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _weather.getWeatherForCassino(),
-                    builder: (context, snap) {
-                      if (snap.connectionState != ConnectionState.done) {
+                  Consumer<WeatherService>(
+                    builder: (context, weather, child) {
+                      if (weather.isLoading) {
                         return const _LoadingCard(
                           icon: Icons.wb_sunny,
                           title: 'Meteo',
                           subtitle: 'Caricamento…',
                         );
                       }
-                      if (snap.hasError) {
-                        return _ErrorCard(
-                          icon: Icons.cloud_off,
-                          title: 'Meteo',
-                          subtitle: 'Errore. Tocca per riprovare.',
-                          onTap: () => setState(() {}),
-                        );
-                      }
-
-                      final w = snap.data!;
                       return Card(
                         color: cs.tertiaryContainer,
                         child: Padding(
@@ -142,14 +133,14 @@ class _OnePageHomeScreenState extends State<OnePageHomeScreen> {
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      '${w['temperature']}°C • ${w['description']}',
+                                      '${weather.temperature}°C • ${weather.description}',
                                       style: theme.textTheme.bodyLarge?.copyWith(
                                         color: cs.onTertiaryContainer,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      'Vento ${w['windSpeed']} km/h • Umidità ${w['humidity']}%',
+                                      'Vento ${weather.windSpeed.toStringAsFixed(1)} km/h • Umidità ${weather.humidity}%',
                                       style: theme.textTheme.bodyMedium?.copyWith(
                                         color: cs.onTertiaryContainer.withOpacity(0.85),
                                       ),
@@ -159,7 +150,7 @@ class _OnePageHomeScreenState extends State<OnePageHomeScreen> {
                               ),
                               IconButton(
                                 tooltip: 'Aggiorna',
-                                onPressed: () => setState(() {}),
+                                onPressed: () => weather.getWeatherForCassino(),
                                 icon: const Icon(Icons.refresh),
                               ),
                             ],
