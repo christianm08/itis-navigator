@@ -14,7 +14,6 @@ class NavigationService extends ChangeNotifier {
   bool _isCalculatingRoute = false;
   int _currentStepIndex = 0;
   double _remainingDistance = 0.0;
-  double _distanceToNextStep = 0.0;
   Duration _estimatedTimeRemaining = Duration.zero;
   String _currentInstruction = '';
   String? _error;
@@ -33,7 +32,6 @@ class NavigationService extends ChangeNotifier {
   bool get isCalculatingRoute => _isCalculatingRoute;
   int get currentStepIndex => _currentStepIndex;
   double get remainingDistance => _remainingDistance;
-  double get distanceToNextStep => _distanceToNextStep;
   Duration get estimatedTimeRemaining => _estimatedTimeRemaining;
   String get currentInstruction => _currentInstruction;
   String? get error => _error;
@@ -78,7 +76,6 @@ class NavigationService extends ChangeNotifier {
         start: LatLng(start.latitude, start.longitude),
         end: _destination!,
       );
-
       _activeRoute = route;
       _currentStepIndex = 0;
       _remainingDistance = route.distanceMeters;
@@ -92,7 +89,6 @@ class NavigationService extends ChangeNotifier {
       debugPrint('✅ Percorso calcolato: ${route.distanceMeters.round()}m, '
           '${route.steps.length} passi');
     } catch (e) {
-      // Mostra l'errore reale così è più facile debug
       final errMsg = e.toString().replaceAll('Exception: ', '');
       debugPrint('❌ Errore routing: $errMsg');
       _error = errMsg.length > 120 ? '${errMsg.substring(0, 120)}...' : errMsg;
@@ -130,7 +126,6 @@ class NavigationService extends ChangeNotifier {
     }
 
     _syncCurrentStep(position);
-    _distanceToNextStep = _distanceFromPositionToStep(position);
     _remainingDistance = _calculateRemainingDistance(position);
     _estimatedTimeRemaining =
         Duration(seconds: (_remainingDistance / 1.4).round());
@@ -144,9 +139,7 @@ class NavigationService extends ChangeNotifier {
         DateTime.now().difference(_lastRerouteAt!).inSeconds >= 8;
     if (_isOffRoute && canReroute) {
       await _buildRoute(position);
-      if (_activeRoute != null) {
-        _currentInstruction = '⚠️ Percorso ricalcolato';
-      }
+      if (_activeRoute != null) _currentInstruction = '⚠️ Percorso ricalcolato';
     }
 
     notifyListeners();
@@ -156,36 +149,16 @@ class NavigationService extends ChangeNotifier {
     if (steps.isEmpty) return;
     int bestIndex = _currentStepIndex;
     double bestDistance = double.infinity;
-
     for (int i = _currentStepIndex; i < steps.length; i++) {
-      final step = steps[i];
-      final distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        step.location.latitude,
-        step.location.longitude,
+      final d = Geolocator.distanceBetween(
+        position.latitude, position.longitude,
+        steps[i].location.latitude, steps[i].location.longitude,
       );
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = i;
-      }
+      if (d < bestDistance) { bestDistance = d; bestIndex = i; }
     }
-
-    if (bestDistance < stepProximityThreshold ||
-        bestIndex > _currentStepIndex) {
+    if (bestDistance < stepProximityThreshold || bestIndex > _currentStepIndex) {
       _currentStepIndex = bestIndex;
     }
-  }
-
-  double _distanceFromPositionToStep(Position position) {
-    final step = currentStep;
-    if (step == null) return 0.0;
-    return Geolocator.distanceBetween(
-      position.latitude,
-      position.longitude,
-      step.location.latitude,
-      step.location.longitude,
-    );
   }
 
   double _calculateRemainingDistance(Position position) {
@@ -193,10 +166,8 @@ class NavigationService extends ChangeNotifier {
     final step = currentStep;
     if (step != null) {
       remaining += Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        step.location.latitude,
-        step.location.longitude,
+        position.latitude, position.longitude,
+        step.location.latitude, step.location.longitude,
       );
     }
     for (int i = _currentStepIndex; i < steps.length; i++) {
@@ -209,22 +180,19 @@ class NavigationService extends ChangeNotifier {
     if (routePoints.isEmpty) return 0.0;
     double minDistance = double.infinity;
     for (final point in routePoints) {
-      final distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        point.latitude,
-        point.longitude,
+      final d = Geolocator.distanceBetween(
+        position.latitude, position.longitude,
+        point.latitude, point.longitude,
       );
-      if (distance < minDistance) minDistance = distance;
+      if (d < minDistance) minDistance = d;
     }
     return minDistance;
   }
 
   void _startNavigationTimer() {
     _navigationTimer?.cancel();
-    _navigationTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      notifyListeners();
-    });
+    _navigationTimer =
+        Timer.periodic(const Duration(seconds: 2), (_) => notifyListeners());
   }
 
   String getFormattedETA() {

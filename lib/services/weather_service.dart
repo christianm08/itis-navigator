@@ -13,8 +13,6 @@ class WeatherService extends ChangeNotifier {
   String _icon = '☁️';
   int _humidity = 0;
   double _windSpeed = 0.0;
-  double _pressure = 0.0;
-  double _rainRate = 0.0;
 
   bool get isLoading => _isLoading;
   String get temperature => _temperature;
@@ -22,8 +20,6 @@ class WeatherService extends ChangeNotifier {
   String get icon => _icon;
   int get humidity => _humidity;
   double get windSpeed => _windSpeed;
-  double get pressure => _pressure;
-  double get rainRate => _rainRate;
 
   static const double _lat = 41.4897;
   static const double _lon = 13.8283;
@@ -39,10 +35,8 @@ class WeatherService extends ChangeNotifier {
         'current': [
           'temperature_2m',
           'relative_humidity_2m',
-          'precipitation',
           'weather_code',
           'wind_speed_10m',
-          'surface_pressure',
         ].join(','),
         'timezone': 'Europe/Rome',
         'forecast_days': '1',
@@ -57,18 +51,18 @@ class WeatherService extends ChangeNotifier {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final cur = data['current'] as Map<String, dynamic>;
 
-        final temp = (cur['temperature_2m'] as num).toDouble();
-        _temperature = temp.toStringAsFixed(1);
-        _humidity = (cur['relative_humidity_2m'] as num?)?.toInt() ?? 0;
-        _windSpeed = (cur['wind_speed_10m'] as num?)?.toDouble() ?? 0.0;
-        _pressure = (cur['surface_pressure'] as num?)?.toDouble() ?? 0.0;
-        _rainRate = (cur['precipitation'] as num?)?.toDouble() ?? 0.0;
+        _temperature =
+            (cur['temperature_2m'] as num).toDouble().toStringAsFixed(1);
+        _humidity =
+            (cur['relative_humidity_2m'] as num?)?.toInt() ?? 0;
+        _windSpeed =
+            (cur['wind_speed_10m'] as num?)?.toDouble() ?? 0.0;
 
         final code = (cur['weather_code'] as num?)?.toInt() ?? 0;
         _description = _wmoDescription(code);
         _icon = _wmoEmoji(code);
 
-        debugPrint('✅ Meteo: $_temperature°C, $_description (WMO $code)');
+        debugPrint('✅ Meteo: ${_temperature}°C, $_description (WMO $code)');
       } else {
         debugPrint('❌ Open-Meteo ${response.statusCode}');
         _useMockData();
@@ -82,7 +76,6 @@ class WeatherService extends ChangeNotifier {
     }
   }
 
-  // WMO 4677 weather interpretation codes
   String _wmoDescription(int code) {
     if (code == 0) return 'Cielo sereno';
     if (code == 1) return 'Prevalentemente sereno';
@@ -99,7 +92,8 @@ class WeatherService extends ChangeNotifier {
   }
 
   String _wmoEmoji(int code) {
-    final isDay = DateTime.now().hour >= 6 && DateTime.now().hour < 20;
+    final isDay =
+        DateTime.now().hour >= 6 && DateTime.now().hour < 20;
     if (code == 0) return isDay ? '☀️' : '🌙';
     if (code <= 2) return isDay ? '🌤️' : '🌙';
     if (code == 3) return '☁️';
@@ -118,8 +112,6 @@ class WeatherService extends ChangeNotifier {
     _icon = h < 20 ? '☀️' : '🌙';
     _humidity = 72;
     _windSpeed = 10.0;
-    _pressure = 1018.0;
-    _rainRate = 0.0;
   }
 
   Future<void> getWeatherForCassino() async => fetchWeather();

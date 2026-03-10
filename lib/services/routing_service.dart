@@ -6,16 +6,15 @@ import '../models/route_data_model.dart';
 
 /// Routing via OSRM Demo Server (https://project-osrm.org)
 /// - Completamente gratuito, nessuna API key richiesta
-/// - Basato su OpenStreetMap
-/// - Profilo: foot (a piedi)
+/// - Basato su OpenStreetMap, profilo: foot (a piedi)
 class RoutingService {
-  static const String _baseUrl = 'https://router.project-osrm.org/route/v1/foot';
+  static const String _baseUrl =
+      'https://router.project-osrm.org/route/v1/foot';
 
   Future<RouteDataModel> fetchWalkingRoute({
     required LatLng start,
     required LatLng end,
   }) async {
-    // OSRM: lon,lat (ordine invertito rispetto a Google)
     final url = Uri.parse(
       '$_baseUrl/'
       '${start.longitude},${start.latitude}'
@@ -24,20 +23,19 @@ class RoutingService {
       '?overview=full&geometries=geojson&steps=true&annotations=false',
     );
 
-    debugPrint('🗺️ OSRM routing: $url');
+    debugPrint('🗺️ OSRM: $url');
 
     final response =
         await http.get(url).timeout(const Duration(seconds: 15));
 
     if (response.statusCode != 200) {
-      throw Exception(
-          'Errore OSRM: ${response.statusCode} ${response.body}');
+      throw Exception('Errore OSRM: ${response.statusCode} ${response.body}');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-
     if (data['code'] != 'Ok') {
-      throw Exception('OSRM: ${data['code']} - ${data['message'] ?? 'percorso non trovato'}');
+      throw Exception(
+          'OSRM: ${data['code']} - ${data['message'] ?? 'percorso non trovato'}');
     }
 
     final routes = data['routes'] as List<dynamic>;
@@ -46,7 +44,6 @@ class RoutingService {
     final route = routes.first as Map<String, dynamic>;
     final legs = route['legs'] as List<dynamic>;
 
-    // Polyline dal geometry GeoJSON
     final geometry = route['geometry'] as Map<String, dynamic>;
     final coords = geometry['coordinates'] as List<dynamic>;
     final polylinePoints = coords.map((c) {
@@ -54,43 +51,35 @@ class RoutingService {
       return LatLng((pt[1] as num).toDouble(), (pt[0] as num).toDouble());
     }).toList();
 
-    // Steps da tutti i legs
     final List<RouteStepModel> steps = [];
     for (final leg in legs) {
-      final legMap = leg as Map<String, dynamic>;
-      final legSteps = legMap['steps'] as List<dynamic>;
+      final legSteps = (leg as Map<String, dynamic>)['steps'] as List<dynamic>;
       for (final step in legSteps) {
         final s = step as Map<String, dynamic>;
         final maneuver = s['maneuver'] as Map<String, dynamic>;
         final loc = maneuver['location'] as List<dynamic>;
-        final stepLat = (loc[1] as num).toDouble();
-        final stepLon = (loc[0] as num).toDouble();
-
-        final instruction = _buildInstruction(s);
-
         steps.add(RouteStepModel(
-          instruction: instruction,
+          instruction: _buildInstruction(s),
           distance: (s['distance'] as num).toDouble(),
           duration: (s['duration'] as num).toDouble(),
-          location: LatLng(stepLat, stepLon),
+          location: LatLng(
+            (loc[1] as num).toDouble(),
+            (loc[0] as num).toDouble(),
+          ),
         ));
       }
     }
 
-    final totalDistance = (route['distance'] as num).toDouble();
-    final totalDuration = (route['duration'] as num).toDouble();
-
-    debugPrint('✅ OSRM: ${totalDistance.round()}m, ${steps.length} passi');
+    debugPrint('✅ OSRM: ${(route['distance'] as num).round()}m, ${steps.length} passi');
 
     return RouteDataModel(
       polylinePoints: polylinePoints,
       steps: steps,
-      distanceMeters: totalDistance,
-      durationSeconds: totalDuration,
+      distanceMeters: (route['distance'] as num).toDouble(),
+      durationSeconds: (route['duration'] as num).toDouble(),
     );
   }
 
-  /// Converte il maneuver OSRM in istruzione italiana leggibile
   String _buildInstruction(Map<String, dynamic> step) {
     final maneuver = step['maneuver'] as Map<String, dynamic>;
     final type = maneuver['type'] as String? ?? '';
@@ -108,9 +97,8 @@ class RoutingService {
       case 'turn':
         return '${_modifierToIt(modifier)}$road$distStr';
       case 'new name':
-        return 'Continua$road$distStr';
       case 'continue':
-        return 'Continua${_modifierToIt(modifier, prefix: false)}$road$distStr';
+        return 'Continua$road$distStr';
       case 'merge':
         return 'Immettiti$road';
       case 'on ramp':
@@ -118,31 +106,31 @@ class RoutingService {
       case 'off ramp':
         return 'Esci dalla rampa$road';
       case 'fork':
-        return 'Al bivio, tieni ${_modifierToIt(modifier, prefix: false)}$road';
+        return 'Al bivio, tieni ${_modifierToIt(modifier)}$road';
       case 'roundabout':
       case 'rotary':
         final exit = maneuver['exit'] as int?;
-        final exitStr = exit != null ? 'Prendi la $exit° uscita' : 'Alla rotonda';
-        return '$exitStr$road';
+        return exit != null
+            ? 'Prendi la $exit° uscita$road'
+            : 'Alla rotonda$road';
       case 'end of road':
-        return 'Fine della strada, ${_modifierToIt(modifier, prefix: false)}$road';
+        return 'Fine della strada, ${_modifierToIt(modifier)}$road';
       default:
         return 'Continua$road$distStr';
     }
   }
 
-  String _modifierToIt(String modifier, {bool prefix = true}) {
-    final p = prefix ? '' : '';
+  String _modifierToIt(String modifier) {
     switch (modifier) {
-      case 'left': return '${p}Svolta a sinistra';
-      case 'right': return '${p}Svolta a destra';
-      case 'sharp left': return '${p}Svolta decisa a sinistra';
-      case 'sharp right': return '${p}Svolta decisa a destra';
-      case 'slight left': return '${p}Tieni la sinistra';
-      case 'slight right': return '${p}Tieni la destra';
-      case 'straight': return '${p}Vai dritto';
-      case 'uturn': return '${p}Fai inversione';
-      default: return '${p}Continua';
+      case 'left':         return 'Svolta a sinistra';
+      case 'right':        return 'Svolta a destra';
+      case 'sharp left':   return 'Svolta decisa a sinistra';
+      case 'sharp right':  return 'Svolta decisa a destra';
+      case 'slight left':  return 'Tieni la sinistra';
+      case 'slight right': return 'Tieni la destra';
+      case 'straight':     return 'Vai dritto';
+      case 'uturn':        return 'Fai inversione';
+      default:             return 'Continua';
     }
   }
 }
