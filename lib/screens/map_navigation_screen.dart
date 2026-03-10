@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../services/location_service.dart';
 import '../services/navigation_service.dart';
+import 'destination_picker_screen.dart';
 
 class MapNavigationScreen extends StatefulWidget {
-  const MapNavigationScreen({super.key});
+  final Destination destination;
+
+  const MapNavigationScreen({super.key, required this.destination});
 
   @override
   State<MapNavigationScreen> createState() => _MapNavigationScreenState();
@@ -18,21 +22,16 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   bool _followUser = true;
   bool _usingFallbackPosition = false;
 
-  static const LatLng _itisLocation = LatLng(41.4688333, 13.8341111);
   static const LatLng _cassinoCenter = LatLng(41.4897, 13.8283);
 
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
   final Set<Circle> _circles = {};
 
-  // Usato per evitare rebuild polyline se il percorso non è cambiato
   int _lastRoutePointsHash = 0;
-
-  // Camera follow: aggiorna solo se l'utente si è mosso di più di 2m
   LatLng? _lastCameraTarget;
   static const double _cameraUpdateThreshold = 2.0;
 
-  // Animations
   late final AnimationController _enterCtrl;
   late final Animation<double> _topBarFade;
   late final Animation<Offset> _topBarSlide;
@@ -42,6 +41,9 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   late final Animation<double> _bannerFade;
   late final Animation<Offset> _bannerSlide;
 
+  LatLng get _destLatLng =>
+      LatLng(widget.destination.latitude, widget.destination.longitude);
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +51,12 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _enterCtrl.forward();
       _initializeNavigation();
+      // Annuncio iniziale per screen reader
+      SemanticsService.announce(
+        'Navigazione avviata verso ${widget.destination.name}. '
+        'Attendi il calcolo del percorso.',
+        TextDirection.ltr,
+      );
     });
   }
 
@@ -123,7 +131,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     }
 
     await navService.startNavigation(
-        start: startPosition, destination: _itisLocation);
+        start: startPosition, destination: _destLatLng);
     _rebuildMapData();
     locationService.addListener(_handleLocationUpdate);
     if (mounted) setState(() {});
@@ -143,8 +151,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
 
     if (_followUser && _mapController != null) {
       final newTarget = LatLng(position.latitude, position.longitude);
-
-      // Anima camera solo se l'utente si è mosso abbastanza
       final last = _lastCameraTarget;
       if (last != null) {
         final moved = Geolocator.distanceBetween(
@@ -154,15 +160,11 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
         if (moved < _cameraUpdateThreshold) return;
       }
       _lastCameraTarget = newTarget;
-
       double bearing = 0;
       try { bearing = locationService.heading ?? 0; } catch (_) {}
       _mapController!.animateCamera(
         CameraUpdate.newCameraPosition(CameraPosition(
-          target: newTarget,
-          zoom: 18,
-          bearing: bearing,
-          tilt: 45,
+          target: newTarget, zoom: 18, bearing: bearing, tilt: 45,
         )),
       );
     }
@@ -173,7 +175,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     final locationService = context.read<LocationService>();
     final position = locationService.currentPosition;
 
-    // Rigenera polyline solo se il percorso è cambiato
     final newHash = navService.routePoints.length;
     if (newHash != _lastRoutePointsHash) {
       _lastRoutePointsHash = newHash;
@@ -193,9 +194,9 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     _markers.clear();
     _markers.add(Marker(
       markerId: const MarkerId('destination'),
-      position: _itisLocation,
+      position: _destLatLng,
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-      infoWindow: const InfoWindow(title: 'ITIS E. Majorana'),
+      infoWindow: InfoWindow(title: widget.destination.name),
     ));
 
     final currentStep = navService.currentStep;
@@ -203,8 +204,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       _markers.add(Marker(
         markerId: const MarkerId('current_step'),
         position: currentStep.location,
-        icon:
-            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         infoWindow: InfoWindow(
           title: 'Prossima manovra',
           snippet: currentStep.instruction,
@@ -239,7 +239,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Mappa
           GoogleMap(
             initialCameraPosition:
                 CameraPosition(target: cameraTarget, zoom: 15),
@@ -272,29 +271,35 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                 opacity: _bannerFade,
                 child: SlideTransition(
                   position: _bannerSlide,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade700,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Row(children: [
-                      Icon(Icons.location_off, color: Colors.white, size: 18),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'GPS non disponibile — percorso da centro Cassino',
-                          style: TextStyle(color: Colors.white, fontSize: 13),
-                        ),
+                  child: Semantics(
+                    liveRegion: true,
+                    label: 'GPS non disponibile. Percorso calcolato dal centro di Cassino.',
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade700,
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                    ]),
+                      child: const Row(children: [
+                        Icon(Icons.location_off, color: Colors.white, size: 18),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: ExcludeSemantics(
+                            child: Text(
+                              'GPS non disponibile — percorso da centro Cassino',
+                              style: TextStyle(color: Colors.white, fontSize: 13),
+                            ),
+                          ),
+                        ),
+                      ]),
+                    ),
                   ),
                 ),
               ),
             ),
 
-          // Top bar — isolata con RepaintBoundary
+          // Top bar
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,
@@ -306,15 +311,19 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                 child: RepaintBoundary(
                   child: Row(
                     children: [
-                      _buildTopButton(
-                        icon: Icons.arrow_back_rounded,
-                        onTap: () {
-                          context
-                              .read<LocationService>()
-                              .removeListener(_handleLocationUpdate);
-                          context.read<NavigationService>().stopNavigation();
-                          Navigator.pop(context);
-                        },
+                      Semantics(
+                        button: true,
+                        label: 'Ferma la navigazione e torna indietro',
+                        child: _buildTopButton(
+                          icon: Icons.arrow_back_rounded,
+                          onTap: () {
+                            context
+                                .read<LocationService>()
+                                .removeListener(_handleLocationUpdate);
+                            context.read<NavigationService>().stopNavigation();
+                            Navigator.pop(context);
+                          },
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -332,57 +341,87 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                               ),
                             ],
                           ),
-                          // Consumer separato: rebuild solo top bar,
-                          // non l'intero Stack
                           child: Consumer<NavigationService>(
-                            builder: (_, nav, __) => nav.isCalculatingRoute
-                                ? Row(children: [
-                                    const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2.2),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text('Calcolo percorso...',
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
-                                                  fontWeight: FontWeight.bold)),
-                                    ),
-                                  ])
-                                : Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        nav.currentInstruction.isEmpty
-                                            ? 'Preparazione percorso...'
-                                            : nav.currentInstruction,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: nav.error != null
-                                              ? Colors.red
-                                              : const Color(0xFF1F2937),
+                            builder: (_, nav, __) {
+                              // Annuncio vocale cambio istruzione
+                              if (!nav.isCalculatingRoute &&
+                                  nav.currentInstruction.isNotEmpty) {
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  SemanticsService.announce(
+                                    nav.currentInstruction,
+                                    TextDirection.ltr,
+                                  );
+                                });
+                              }
+                              return nav.isCalculatingRoute
+                                  ? Semantics(
+                                      liveRegion: true,
+                                      label: 'Calcolo percorso in corso, attendere',
+                                      child: Row(children: [
+                                        const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2.2),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: ExcludeSemantics(
+                                            child: Text('Calcolo percorso...',
+                                                style: theme
+                                                    .textTheme.titleMedium
+                                                    ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                          ),
+                                        ),
+                                      ]),
+                                    )
+                                  : Semantics(
+                                      liveRegion: true,
+                                      label: nav.error != null
+                                          ? 'Errore: ${nav.error}'
+                                          : '${nav.currentInstruction}. '
+                                            'Distanza rimanente: ${nav.getFormattedDistance()}. '
+                                            'Tempo stimato: ${nav.getFormattedETA()}',
+                                      child: ExcludeSemantics(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              nav.currentInstruction.isEmpty
+                                                  ? 'Preparazione percorso...'
+                                                  : nav.currentInstruction,
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: theme
+                                                  .textTheme.titleMedium
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: nav.error != null
+                                                    ? Colors.red
+                                                    : const Color(0xFF1F2937),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              nav.error != null
+                                                  ? nav.error!
+                                                  : '${nav.getFormattedDistance()} • ETA ${nav.getFormattedETA()}',
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                color: nav.error != null
+                                                    ? Colors.red.shade300
+                                                    : Colors.grey[700],
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        nav.error != null
-                                            ? nav.error!
-                                            : '${nav.getFormattedDistance()} • ETA ${nav.getFormattedETA()}',
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                          color: nav.error != null
-                                              ? Colors.red.shade300
-                                              : Colors.grey[700],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    );
+                            },
                           ),
                         ),
                       ),
@@ -401,45 +440,56 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
               opacity: _sideButtonsFade,
               child: Column(
                 children: [
-                  _buildTopButton(
-                    icon: Icons.my_location_rounded,
-                    active: _followUser,
-                    onTap: () async {
-                      setState(() => _followUser = true);
-                      final locationService =
-                          context.read<LocationService>();
-                      await locationService.forceRefreshPosition();
-                      final current = locationService.currentPosition;
-                      final target = current != null
-                          ? LatLng(current.latitude, current.longitude)
-                          : _cassinoCenter;
-                      _mapController?.animateCamera(
-                        CameraUpdate.newCameraPosition(CameraPosition(
-                            target: target,
-                            zoom: 18,
-                            bearing: 0,
-                            tilt: 45)),
-                      );
-                    },
+                  Semantics(
+                    button: true,
+                    label: 'Centra la mappa sulla tua posizione',
+                    child: _buildTopButton(
+                      icon: Icons.my_location_rounded,
+                      active: _followUser,
+                      onTap: () async {
+                        setState(() => _followUser = true);
+                        final ls = context.read<LocationService>();
+                        await ls.forceRefreshPosition();
+                        final cur = ls.currentPosition;
+                        final target = cur != null
+                            ? LatLng(cur.latitude, cur.longitude)
+                            : _cassinoCenter;
+                        _mapController?.animateCamera(
+                          CameraUpdate.newCameraPosition(CameraPosition(
+                              target: target,
+                              zoom: 18,
+                              bearing: 0,
+                              tilt: 45)),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  _buildTopButton(
-                    icon: Icons.add,
-                    onTap: () =>
-                        _mapController?.animateCamera(CameraUpdate.zoomIn()),
+                  Semantics(
+                    button: true,
+                    label: 'Zoom avanti',
+                    child: _buildTopButton(
+                      icon: Icons.add,
+                      onTap: () => _mapController
+                          ?.animateCamera(CameraUpdate.zoomIn()),
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  _buildTopButton(
-                    icon: Icons.remove,
-                    onTap: () =>
-                        _mapController?.animateCamera(CameraUpdate.zoomOut()),
+                  Semantics(
+                    button: true,
+                    label: 'Zoom indietro',
+                    child: _buildTopButton(
+                      icon: Icons.remove,
+                      onTap: () => _mapController
+                          ?.animateCamera(CameraUpdate.zoomOut()),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
 
-          // Bottom card — isolata con RepaintBoundary + Consumer separato
+          // Bottom card
           Positioned(
             left: 16,
             right: 16,
@@ -450,82 +500,98 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                 position: _bottomCardSlide,
                 child: RepaintBoundary(
                   child: Consumer<NavigationService>(
-                    builder: (_, nav, __) => Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.14),
-                            blurRadius: 24,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: [
-                                  theme.colorScheme.primary,
-                                  theme.colorScheme.secondary,
-                                ]),
-                                borderRadius: BorderRadius.circular(18),
+                    builder: (_, nav, __) => Semantics(
+                      label: nav.hasArrived
+                          ? 'Destinazione raggiunta: ${widget.destination.name}'
+                          : 'Navigazione verso ${widget.destination.name}. '
+                            'Manovra ${nav.currentStepIndex + 1} di ${nav.steps.length}. '
+                            'Progresso: ${(nav.progress * 100).round()} percento.',
+                      child: ExcludeSemantics(
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.14),
+                                blurRadius: 24,
+                                offset: const Offset(0, 10),
                               ),
-                              child: const Icon(Icons.route_rounded,
-                                  color: Colors.white),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    nav.hasArrived
-                                        ? 'Destinazione raggiunta'
-                                        : 'Verso ITIS E. Majorana',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    nav.steps.isEmpty
-                                        ? 'Calcolo in corso...'
-                                        : 'Manovra ${nav.currentStepIndex + 1}/${nav.steps.length}',
-                                    style: theme.textTheme.bodyMedium
-                                        ?.copyWith(color: Colors.grey[700]),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ]),
-                          const SizedBox(height: 16),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              minHeight: 10,
-                              value: nav.progress,
-                              backgroundColor: const Color(0xFFE5E7EB),
-                              valueColor: AlwaysStoppedAnimation(
-                                  theme.colorScheme.primary),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildStatChip(theme, Icons.straighten_rounded,
-                                  nav.getFormattedDistance()),
-                              _buildStatChip(theme, Icons.schedule_rounded,
-                                  nav.getFormattedETA()),
                             ],
                           ),
-                        ],
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(colors: [
+                                      theme.colorScheme.primary,
+                                      theme.colorScheme.secondary,
+                                    ]),
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  child: const Icon(Icons.route_rounded,
+                                      color: Colors.white),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nav.hasArrived
+                                            ? 'Destinazione raggiunta'
+                                            : 'Verso ${widget.destination.name}',
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        nav.steps.isEmpty
+                                            ? 'Calcolo in corso...'
+                                            : 'Manovra ${nav.currentStepIndex + 1}/${nav.steps.length}',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(color: Colors.grey[700]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ]),
+                              const SizedBox(height: 16),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child: LinearProgressIndicator(
+                                  minHeight: 10,
+                                  value: nav.progress,
+                                  backgroundColor: const Color(0xFFE5E7EB),
+                                  valueColor: AlwaysStoppedAnimation(
+                                      theme.colorScheme.primary),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildStatChip(
+                                      theme,
+                                      Icons.straighten_rounded,
+                                      nav.getFormattedDistance()),
+                                  _buildStatChip(
+                                      theme,
+                                      Icons.schedule_rounded,
+                                      nav.getFormattedETA()),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
