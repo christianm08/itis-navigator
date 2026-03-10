@@ -12,6 +12,10 @@ class LocationService extends ChangeNotifier {
   StreamSubscription<CompassEvent>? _compassStreamSubscription;
   bool _isInitialized = false;
 
+  // Debounce bussola: notifica solo se heading cambia di almeno 5 gradi
+  double? _lastNotifiedHeading;
+  static const double _headingThreshold = 5.0;
+
   Position? get currentPosition => _currentPosition;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -38,16 +42,15 @@ class LocationService extends ChangeNotifier {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-
       if (permission == LocationPermission.denied) {
         _error = 'Permesso posizione negato';
         _isLoading = false;
         notifyListeners();
         return;
       }
-
       if (permission == LocationPermission.deniedForever) {
-        _error = 'Permesso posizione negato definitivamente. Apri le impostazioni.';
+        _error =
+            'Permesso posizione negato definitivamente. Apri le impostazioni.';
         _isLoading = false;
         notifyListeners();
         return;
@@ -55,14 +58,12 @@ class LocationService extends ChangeNotifier {
 
       _currentPosition = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
+          accuracy: LocationAccuracy.high,
           distanceFilter: 0,
         ),
       ).timeout(
         const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('Timeout nel recupero della posizione');
-        },
+        onTimeout: () => throw TimeoutException('Timeout GPS'),
       );
 
       await _positionStreamSubscription?.cancel();
@@ -77,7 +78,6 @@ class LocationService extends ChangeNotifier {
     } catch (e) {
       _error = 'GPS temporaneamente non disponibile';
       debugPrint('⚠️ LocationService error: $e');
-      // Non propagare l'errore - l'app continua a funzionare
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -85,13 +85,13 @@ class LocationService extends ChangeNotifier {
   }
 
   void _startLocationTracking() {
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.best,
-      distanceFilter: 1,
-    );
-
+    // distanceFilter: 5m - notifica solo ogni 5 metri (era 1m)
+    // Riduce drasticamente il numero di rebuild della UI
     _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
     ).listen(
       (position) {
         _currentPosition = position;
@@ -100,13 +100,12 @@ class LocationService extends ChangeNotifier {
       },
       onError: (error) {
         debugPrint('⚠️ Errore stream posizione: $error');
-        // Non mostrare errore all'utente se il tracking è già attivo
         if (_currentPosition == null) {
           _error = 'Errore nel tracciamento posizione';
           notifyListeners();
         }
       },
-      cancelOnError: false, // Continua il tracking anche con errori
+      cancelOnError: false,
     );
   }
 
@@ -114,20 +113,23 @@ class LocationService extends ChangeNotifier {
     try {
       _compassStreamSubscription = FlutterCompass.events?.listen(
         (event) {
-          if (event.heading != null) {
-            _heading = event.heading;
+          final newHeading = event.heading;
+          if (newHeading == null) return;
+
+          // Notifica solo se heading cambia di almeno 5 gradi
+          // Evita decine di notifyListeners() al secondo
+          final last = _lastNotifiedHeading;
+          if (last == null || (newHeading - last).abs() >= _headingThreshold) {
+            _heading = newHeading;
+            _lastNotifiedHeading = newHeading;
             notifyListeners();
           }
         },
-        onError: (error) {
-          debugPrint('⚠️ Errore bussola: $error');
-          // Bussola non critica - ignora errori
-        },
+        onError: (error) => debugPrint('⚠️ Errore bussola: $error'),
         cancelOnError: false,
       );
     } catch (e) {
       debugPrint('⚠️ Bussola non disponibile: $e');
-      // Continua senza bussola
     }
   }
 
@@ -135,14 +137,12 @@ class LocationService extends ChangeNotifier {
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
+          accuracy: LocationAccuracy.high,
           distanceFilter: 0,
         ),
       ).timeout(
         const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('Timeout aggiornamento posizione');
-        },
+        onTimeout: () => throw TimeoutException('Timeout aggiornamento'),
       );
       _error = null;
       notifyListeners();
@@ -150,9 +150,7 @@ class LocationService extends ChangeNotifier {
       _error = 'Timeout nel recupero della posizione';
       notifyListeners();
     } catch (e) {
-      _error = 'Errore aggiornamento posizione: $e';
       debugPrint('⚠️ forceRefreshPosition error: $e');
-      notifyListeners();
     }
   }
 

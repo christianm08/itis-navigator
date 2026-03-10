@@ -25,7 +25,14 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   final Set<Polyline> _polylines = {};
   final Set<Circle> _circles = {};
 
-  // Animation controllers
+  // Usato per evitare rebuild polyline se il percorso non è cambiato
+  int _lastRoutePointsHash = 0;
+
+  // Camera follow: aggiorna solo se l'utente si è mosso di più di 2m
+  LatLng? _lastCameraTarget;
+  static const double _cameraUpdateThreshold = 2.0;
+
+  // Animations
   late final AnimationController _enterCtrl;
   late final Animation<double> _topBarFade;
   late final Animation<Offset> _topBarSlide;
@@ -50,47 +57,36 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-
-    // Top bar: slide da sopra (0ms → 300ms)
     _topBarFade = CurvedAnimation(
       parent: _enterCtrl,
       curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
     );
     _topBarSlide = Tween<Offset>(
-      begin: const Offset(0, -1),
-      end: Offset.zero,
+      begin: const Offset(0, -1), end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _enterCtrl,
       curve: const Interval(0.0, 0.55, curve: Curves.easeOutCubic),
     ));
-
-    // Pulsanti laterali: fade (200ms → 500ms)
     _sideButtonsFade = CurvedAnimation(
       parent: _enterCtrl,
       curve: const Interval(0.33, 0.85, curve: Curves.easeOut),
     );
-
-    // Bottom card: slide da sotto (150ms → 550ms)
     _bottomCardFade = CurvedAnimation(
       parent: _enterCtrl,
       curve: const Interval(0.25, 0.9, curve: Curves.easeOut),
     );
     _bottomCardSlide = Tween<Offset>(
-      begin: const Offset(0, 1),
-      end: Offset.zero,
+      begin: const Offset(0, 1), end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _enterCtrl,
       curve: const Interval(0.2, 0.85, curve: Curves.easeOutCubic),
     ));
-
-    // Banner GPS fallback: slide da sopra (100ms → 400ms)
     _bannerFade = CurvedAnimation(
       parent: _enterCtrl,
       curve: const Interval(0.15, 0.65, curve: Curves.easeOut),
     );
     _bannerSlide = Tween<Offset>(
-      begin: const Offset(0, -0.6),
-      end: Offset.zero,
+      begin: const Offset(0, -0.6), end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _enterCtrl,
       curve: const Interval(0.15, 0.65, curve: Curves.easeOutCubic),
@@ -127,9 +123,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     }
 
     await navService.startNavigation(
-      start: startPosition,
-      destination: _itisLocation,
-    );
+        start: startPosition, destination: _itisLocation);
     _rebuildMapData();
     locationService.addListener(_handleLocationUpdate);
     if (mounted) setState(() {});
@@ -148,17 +142,28 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     _rebuildMapData();
 
     if (_followUser && _mapController != null) {
+      final newTarget = LatLng(position.latitude, position.longitude);
+
+      // Anima camera solo se l'utente si è mosso abbastanza
+      final last = _lastCameraTarget;
+      if (last != null) {
+        final moved = Geolocator.distanceBetween(
+          last.latitude, last.longitude,
+          newTarget.latitude, newTarget.longitude,
+        );
+        if (moved < _cameraUpdateThreshold) return;
+      }
+      _lastCameraTarget = newTarget;
+
       double bearing = 0;
       try { bearing = locationService.heading ?? 0; } catch (_) {}
       _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(position.latitude, position.longitude),
-            zoom: 18,
-            bearing: bearing,
-            tilt: 45,
-          ),
-        ),
+        CameraUpdate.newCameraPosition(CameraPosition(
+          target: newTarget,
+          zoom: 18,
+          bearing: bearing,
+          tilt: 45,
+        )),
       );
     }
   }
@@ -168,21 +173,24 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     final locationService = context.read<LocationService>();
     final position = locationService.currentPosition;
 
-    _markers.clear();
-    _polylines.clear();
-    _circles.clear();
-
-    if (navService.routePoints.isNotEmpty) {
-      _polylines.add(Polyline(
-        polylineId: const PolylineId('active_route'),
-        points: navService.routePoints,
-        color: Theme.of(context).colorScheme.primary,
-        width: 9,
-        startCap: Cap.roundCap,
-        endCap: Cap.roundCap,
-      ));
+    // Rigenera polyline solo se il percorso è cambiato
+    final newHash = navService.routePoints.length;
+    if (newHash != _lastRoutePointsHash) {
+      _lastRoutePointsHash = newHash;
+      _polylines.clear();
+      if (navService.routePoints.isNotEmpty) {
+        _polylines.add(Polyline(
+          polylineId: const PolylineId('active_route'),
+          points: navService.routePoints,
+          color: Theme.of(context).colorScheme.primary,
+          width: 9,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ));
+      }
     }
 
+    _markers.clear();
     _markers.add(Marker(
       markerId: const MarkerId('destination'),
       position: _itisLocation,
@@ -190,10 +198,24 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       infoWindow: const InfoWindow(title: 'ITIS E. Majorana'),
     ));
 
+    final currentStep = navService.currentStep;
+    if (currentStep != null) {
+      _markers.add(Marker(
+        markerId: const MarkerId('current_step'),
+        position: currentStep.location,
+        icon:
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: InfoWindow(
+          title: 'Prossima manovra',
+          snippet: currentStep.instruction,
+        ),
+      ));
+    }
+
+    _circles.clear();
     final displayPos = position != null
         ? LatLng(position.latitude, position.longitude)
         : _cassinoCenter;
-
     _circles.add(Circle(
       circleId: const CircleId('user_position'),
       center: displayPos,
@@ -203,28 +225,13 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       strokeWidth: 1,
     ));
 
-    final currentStep = navService.currentStep;
-    if (currentStep != null) {
-      _markers.add(Marker(
-        markerId: const MarkerId('current_step'),
-        position: currentStep.location,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        infoWindow: InfoWindow(
-          title: 'Prossima manovra',
-          snippet: currentStep.instruction,
-        ),
-      ));
-    }
-
     if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final navService = context.watch<NavigationService>();
-    final locationService = context.watch<LocationService>();
-    final position = locationService.currentPosition;
+    final position = context.watch<LocationService>().currentPosition;
     final cameraTarget = position != null
         ? LatLng(position.latitude, position.longitude)
         : _cassinoCenter;
@@ -232,9 +239,10 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Mappa (nessuna animazione — appare subito)
+          // Mappa
           GoogleMap(
-            initialCameraPosition: CameraPosition(target: cameraTarget, zoom: 15),
+            initialCameraPosition:
+                CameraPosition(target: cameraTarget, zoom: 15),
             markers: _markers,
             polylines: _polylines,
             circles: _circles,
@@ -245,17 +253,16 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
             compassEnabled: false,
             tiltGesturesEnabled: true,
             rotateGesturesEnabled: true,
-            onMapCreated: (controller) {
-              _mapController = controller;
-              controller.animateCamera(
-                  CameraUpdate.newLatLngZoom(cameraTarget, 15));
+            onMapCreated: (c) {
+              _mapController = c;
+              c.animateCamera(CameraUpdate.newLatLngZoom(cameraTarget, 15));
             },
             onCameraMoveStarted: () {
               if (_followUser) setState(() => _followUser = false);
             },
           ),
 
-          // Banner GPS fallback — slide dall'alto
+          // Banner GPS fallback
           if (_usingFallbackPosition)
             Positioned(
               top: MediaQuery.of(context).padding.top + 100,
@@ -272,25 +279,22 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                       color: Colors.orange.shade700,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.location_off, color: Colors.white, size: 18),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'GPS non disponibile — percorso da centro Cassino',
-                            style:
-                                TextStyle(color: Colors.white, fontSize: 13),
-                          ),
+                    child: const Row(children: [
+                      Icon(Icons.location_off, color: Colors.white, size: 18),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'GPS non disponibile — percorso da centro Cassino',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
                         ),
-                      ],
-                    ),
+                      ),
+                    ]),
                   ),
                 ),
               ),
             ),
 
-          // Top bar istruzioni — slide dall'alto
+          // Top bar — isolata con RepaintBoundary
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,
@@ -299,94 +303,97 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
               opacity: _topBarFade,
               child: SlideTransition(
                 position: _topBarSlide,
-                child: Row(
-                  children: [
-                    _buildTopButton(
-                      icon: Icons.arrow_back_rounded,
-                      onTap: () {
-                        context
-                            .read<LocationService>()
-                            .removeListener(_handleLocationUpdate);
-                        context.read<NavigationService>().stopNavigation();
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: navService.isCalculatingRoute
-                            ? Row(
-                                children: [
-                                  const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2.2),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Calcolo percorso...',
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    navService.currentInstruction.isEmpty
-                                        ? 'Preparazione percorso...'
-                                        : navService.currentInstruction,
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: navService.error != null
-                                          ? Colors.red
-                                          : const Color(0xFF1F2937),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    navService.error != null
-                                        ? navService.error!
-                                        : '${navService.getFormattedDistance()} • ETA ${navService.getFormattedETA()}',
-                                    style: theme.textTheme.bodyMedium
-                                        ?.copyWith(
-                                      color: navService.error != null
-                                          ? Colors.red.shade300
-                                          : Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                child: RepaintBoundary(
+                  child: Row(
+                    children: [
+                      _buildTopButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: () {
+                          context
+                              .read<LocationService>()
+                              .removeListener(_handleLocationUpdate);
+                          context.read<NavigationService>().stopNavigation();
+                          Navigator.pop(context);
+                        },
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          // Consumer separato: rebuild solo top bar,
+                          // non l'intero Stack
+                          child: Consumer<NavigationService>(
+                            builder: (_, nav, __) => nav.isCalculatingRoute
+                                ? Row(children: [
+                                    const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2.2),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text('Calcolo percorso...',
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.bold)),
+                                    ),
+                                  ])
+                                : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nav.currentInstruction.isEmpty
+                                            ? 'Preparazione percorso...'
+                                            : nav.currentInstruction,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: nav.error != null
+                                              ? Colors.red
+                                              : const Color(0xFF1F2937),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        nav.error != null
+                                            ? nav.error!
+                                            : '${nav.getFormattedDistance()} • ETA ${nav.getFormattedETA()}',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          color: nav.error != null
+                                              ? Colors.red.shade300
+                                              : Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
 
-          // Pulsanti laterali — fade in
+          // Pulsanti laterali
           Positioned(
             right: 16,
             top: MediaQuery.of(context).padding.top + 120,
@@ -399,37 +406,40 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                     active: _followUser,
                     onTap: () async {
                       setState(() => _followUser = true);
+                      final locationService =
+                          context.read<LocationService>();
                       await locationService.forceRefreshPosition();
                       final current = locationService.currentPosition;
                       final target = current != null
                           ? LatLng(current.latitude, current.longitude)
                           : _cassinoCenter;
                       _mapController?.animateCamera(
-                        CameraUpdate.newCameraPosition(
-                          CameraPosition(
-                              target: target, zoom: 18, bearing: 0, tilt: 45),
-                        ),
+                        CameraUpdate.newCameraPosition(CameraPosition(
+                            target: target,
+                            zoom: 18,
+                            bearing: 0,
+                            tilt: 45)),
                       );
                     },
                   ),
                   const SizedBox(height: 12),
                   _buildTopButton(
                     icon: Icons.add,
-                    onTap: () => _mapController
-                        ?.animateCamera(CameraUpdate.zoomIn()),
+                    onTap: () =>
+                        _mapController?.animateCamera(CameraUpdate.zoomIn()),
                   ),
                   const SizedBox(height: 12),
                   _buildTopButton(
                     icon: Icons.remove,
-                    onTap: () => _mapController
-                        ?.animateCamera(CameraUpdate.zoomOut()),
+                    onTap: () =>
+                        _mapController?.animateCamera(CameraUpdate.zoomOut()),
                   ),
                 ],
               ),
             ),
           ),
 
-          // Bottom card — slide dal basso
+          // Bottom card — isolata con RepaintBoundary + Consumer separato
           Positioned(
             left: 16,
             right: 16,
@@ -438,84 +448,86 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
               opacity: _bottomCardFade,
               child: SlideTransition(
                 position: _bottomCardSlide,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.14),
-                        blurRadius: 24,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(colors: [
-                                theme.colorScheme.primary,
-                                theme.colorScheme.secondary,
-                              ]),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: const Icon(Icons.route_rounded,
-                                color: Colors.white),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  navService.hasArrived
-                                      ? 'Destinazione raggiunta'
-                                      : 'Verso ITIS E. Majorana',
-                                  style: theme.textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  navService.steps.isEmpty
-                                      ? 'Calcolo in corso...'
-                                      : 'Manovra ${navService.currentStepIndex + 1}/${navService.steps.length}',
-                                  style: theme.textTheme.bodyMedium
-                                      ?.copyWith(color: Colors.grey[700]),
-                                ),
-                              ],
-                            ),
+                child: RepaintBoundary(
+                  child: Consumer<NavigationService>(
+                    builder: (_, nav, __) => Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.14),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(
-                          minHeight: 10,
-                          value: navService.progress,
-                          backgroundColor: const Color(0xFFE5E7EB),
-                          valueColor: AlwaysStoppedAnimation(
-                              theme.colorScheme.primary),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildStatChip(theme, Icons.straighten_rounded,
-                              navService.getFormattedDistance()),
-                          _buildStatChip(theme, Icons.schedule_rounded,
-                              navService.getFormattedETA()),
+                          Row(children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(colors: [
+                                  theme.colorScheme.primary,
+                                  theme.colorScheme.secondary,
+                                ]),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: const Icon(Icons.route_rounded,
+                                  color: Colors.white),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    nav.hasArrived
+                                        ? 'Destinazione raggiunta'
+                                        : 'Verso ITIS E. Majorana',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    nav.steps.isEmpty
+                                        ? 'Calcolo in corso...'
+                                        : 'Manovra ${nav.currentStepIndex + 1}/${nav.steps.length}',
+                                    style: theme.textTheme.bodyMedium
+                                        ?.copyWith(color: Colors.grey[700]),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ]),
+                          const SizedBox(height: 16),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: LinearProgressIndicator(
+                              minHeight: 10,
+                              value: nav.progress,
+                              backgroundColor: const Color(0xFFE5E7EB),
+                              valueColor: AlwaysStoppedAnimation(
+                                  theme.colorScheme.primary),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _buildStatChip(theme, Icons.straighten_rounded,
+                                  nav.getFormattedDistance()),
+                              _buildStatChip(theme, Icons.schedule_rounded,
+                                  nav.getFormattedETA()),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -573,11 +585,9 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
         children: [
           Icon(icon, size: 18, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
         ],
       ),
     );

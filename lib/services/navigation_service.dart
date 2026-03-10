@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -20,7 +19,10 @@ class NavigationService extends ChangeNotifier {
   RouteDataModel? _activeRoute;
   LatLng? _destination;
   DateTime? _lastRerouteAt;
-  Timer? _navigationTimer;
+
+  // Guard: evita updatePosition se l'utente non si è mosso abbastanza
+  Position? _lastProcessedPosition;
+  static const double _minMoveMeters = 3.0;
 
   static const double stepProximityThreshold = 22.0;
   static const double offRouteThreshold = 35.0;
@@ -60,8 +62,8 @@ class NavigationService extends ChangeNotifier {
     _isNavigating = true;
     _currentStepIndex = 0;
     _error = null;
+    _lastProcessedPosition = null;
     await _buildRoute(start);
-    _startNavigationTimer();
     notifyListeners();
   }
 
@@ -86,7 +88,7 @@ class NavigationService extends ChangeNotifier {
           : 'Procedi verso la destinazione';
       _isOffRoute = false;
       _lastRerouteAt = DateTime.now();
-      debugPrint('✅ Percorso calcolato: ${route.distanceMeters.round()}m, '
+      debugPrint('✅ Percorso: ${route.distanceMeters.round()}m, '
           '${route.steps.length} passi');
     } catch (e) {
       final errMsg = e.toString().replaceAll('Exception: ', '');
@@ -103,19 +105,28 @@ class NavigationService extends ChangeNotifier {
   Future<void> updatePosition(Position position) async {
     if (!_isNavigating || _destination == null || _isCalculatingRoute) return;
 
+    // Skip se l'utente non si è mosso abbastanza (evita lavoro inutile)
+    final last = _lastProcessedPosition;
+    if (last != null) {
+      final moved = Geolocator.distanceBetween(
+        last.latitude, last.longitude,
+        position.latitude, position.longitude,
+      );
+      if (moved < _minMoveMeters) return;
+    }
+    _lastProcessedPosition = position;
+
     if (_activeRoute == null) {
       await _buildRoute(position);
       return;
     }
 
-    final destinationDistance = Geolocator.distanceBetween(
-      position.latitude,
-      position.longitude,
-      _destination!.latitude,
-      _destination!.longitude,
+    final destDist = Geolocator.distanceBetween(
+      position.latitude, position.longitude,
+      _destination!.latitude, _destination!.longitude,
     );
 
-    if (destinationDistance <= arrivalThreshold) {
+    if (destDist <= arrivalThreshold) {
       _hasArrived = true;
       _isNavigating = false;
       _remainingDistance = 0;
@@ -132,8 +143,8 @@ class NavigationService extends ChangeNotifier {
     _currentInstruction =
         currentStep?.instruction ?? 'Continua sul percorso';
 
-    final offRouteDistance = _distanceFromPositionToPolyline(position);
-    _isOffRoute = offRouteDistance > offRouteThreshold;
+    final offDist = _distanceFromPositionToPolyline(position);
+    _isOffRoute = offDist > offRouteThreshold;
 
     final canReroute = _lastRerouteAt == null ||
         DateTime.now().difference(_lastRerouteAt!).inSeconds >= 8;
@@ -148,15 +159,15 @@ class NavigationService extends ChangeNotifier {
   void _syncCurrentStep(Position position) {
     if (steps.isEmpty) return;
     int bestIndex = _currentStepIndex;
-    double bestDistance = double.infinity;
+    double bestDist = double.infinity;
     for (int i = _currentStepIndex; i < steps.length; i++) {
       final d = Geolocator.distanceBetween(
         position.latitude, position.longitude,
         steps[i].location.latitude, steps[i].location.longitude,
       );
-      if (d < bestDistance) { bestDistance = d; bestIndex = i; }
+      if (d < bestDist) { bestDist = d; bestIndex = i; }
     }
-    if (bestDistance < stepProximityThreshold || bestIndex > _currentStepIndex) {
+    if (bestDist < stepProximityThreshold || bestIndex > _currentStepIndex) {
       _currentStepIndex = bestIndex;
     }
   }
@@ -178,26 +189,21 @@ class NavigationService extends ChangeNotifier {
 
   double _distanceFromPositionToPolyline(Position position) {
     if (routePoints.isEmpty) return 0.0;
-    double minDistance = double.infinity;
+    double minDist = double.infinity;
     for (final point in routePoints) {
       final d = Geolocator.distanceBetween(
         position.latitude, position.longitude,
         point.latitude, point.longitude,
       );
-      if (d < minDistance) minDistance = d;
+      if (d < minDist) minDist = d;
     }
-    return minDistance;
-  }
-
-  void _startNavigationTimer() {
-    _navigationTimer?.cancel();
-    _navigationTimer =
-        Timer.periodic(const Duration(seconds: 2), (_) => notifyListeners());
+    return minDist;
   }
 
   String getFormattedETA() {
     if (_estimatedTimeRemaining.inHours > 0) {
-      return '${_estimatedTimeRemaining.inHours}h ${_estimatedTimeRemaining.inMinutes % 60}m';
+      return '${_estimatedTimeRemaining.inHours}h '
+          '${_estimatedTimeRemaining.inMinutes % 60}m';
     }
     if (_estimatedTimeRemaining.inMinutes > 0) {
       return '${_estimatedTimeRemaining.inMinutes} min';
@@ -214,13 +220,6 @@ class NavigationService extends ChangeNotifier {
 
   void stopNavigation() {
     _isNavigating = false;
-    _navigationTimer?.cancel();
     notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _navigationTimer?.cancel();
-    super.dispose();
   }
 }
