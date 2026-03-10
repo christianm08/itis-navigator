@@ -70,13 +70,11 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocus.requestFocus();
-      SemanticsService.sendAnnouncement(
-        TextSpan(
-          text: 'Schermata selezione destinazione. '
-              'Sono disponibili ${kDestinations.length} destinazioni. '
-              'Usa il campo di ricerca per filtrare, '
-              'o scorri la lista per scegliere.',
-        ),
+      SemanticsService.announce(
+        'Schermata selezione destinazione. '
+        'Sono disponibili ${kDestinations.length} destinazioni. '
+        'Usa il campo di ricerca per filtrare, '
+        'o scorri la lista per scegliere.',
         TextDirection.ltr,
       );
     });
@@ -99,21 +97,17 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
       }).toList();
     });
     final count = _filtered.length;
-    SemanticsService.sendAnnouncement(
-      TextSpan(
-        text: count == 0
-            ? 'Nessuna destinazione trovata per "$query"'
-            : '$count destinazion${count == 1 ? 'e trovata' : 'i trovate'} per "$query"',
-      ),
+    SemanticsService.announce(
+      count == 0
+          ? 'Nessuna destinazione trovata per "$query"'
+          : '$count destinazion${count == 1 ? 'e trovata' : 'i trovate'} per "$query"',
       TextDirection.ltr,
     );
   }
 
   void _selectDestination(Destination dest) {
-    SemanticsService.sendAnnouncement(
-      TextSpan(
-        text: 'Avvio navigazione verso ${dest.name}. ${dest.description}',
-      ),
+    SemanticsService.announce(
+      'Avvio navigazione verso ${dest.name}. ${dest.description}',
       TextDirection.ltr,
     );
     Navigator.pushReplacement(
