@@ -24,18 +24,18 @@ class Destination {
 const List<Destination> kDestinations = [
   // --- Scuola ---
   Destination(
-    name: 'ITIS E. Majorana',
-    description: 'Ingresso principale, Via S. Angelo 2',
+    name: 'ITIS - Sede Biennio',
+    description: 'Sede principale, Via S. Angelo 2',
     category: 'Scuola',
     icon: Icons.school_rounded,
     latitude: 41.4688333,
     longitude: 13.8341111,
   ),
   Destination(
-    name: 'ITIS — Ingresso Secondario',
-    description: 'Entrata laterale lato parcheggio',
+    name: 'ITIS — Sede Triennio',
+    description: 'Sede triennio, Via S. Angelo 4',
     category: 'Scuola',
-    icon: Icons.door_sliding_rounded,
+    icon: Icons.school_rounded,
     latitude: 41.46905,
     longitude: 13.83385,
   ),
@@ -43,79 +43,11 @@ const List<Destination> kDestinations = [
   // --- Trasporti ---
   Destination(
     name: 'Stazione Ferroviaria',
-    description: 'Cassino FS — Piazzale della Stazione',
+    description: 'Cassino FS',
     category: 'Trasporti',
     icon: Icons.train_rounded,
-    latitude: 41.47630,
-    longitude: 13.83150,
-  ),
-  Destination(
-    name: 'Autostazione',
-    description: 'Terminal bus interurbani, Via G. Marconi',
-    category: 'Trasporti',
-    icon: Icons.directions_bus_rounded,
-    latitude: 41.47550,
-    longitude: 13.83050,
-  ),
-  Destination(
-    name: 'Fermata Bus Scuola',
-    description: 'Fermata più vicina all\'ITIS su Via S. Angelo',
-    category: 'Trasporti',
-    icon: Icons.bus_alert_rounded,
-    latitude: 41.46950,
-    longitude: 13.83300,
-  ),
-
-  // --- Città ---
-  Destination(
-    name: 'Piazza Diamare',
-    description: 'Piazza principale del centro storico di Cassino',
-    category: 'Città',
-    icon: Icons.location_city_rounded,
-    latitude: 41.48900,
-    longitude: 13.82900,
-  ),
-  Destination(
-    name: 'Ospedale S. Scolastica',
-    description: 'Pronto soccorso e ospedale civile di Cassino',
-    category: 'Città',
-    icon: Icons.local_hospital_rounded,
-    latitude: 41.48100,
-    longitude: 13.82600,
-  ),
-  Destination(
-    name: 'Biblioteca Comunale',
-    description: 'Biblioteca pubblica "G. Salvadori", Via G. Di Biasio',
-    category: 'Città',
-    icon: Icons.menu_book_rounded,
-    latitude: 41.48700,
-    longitude: 13.82800,
-  ),
-  Destination(
-    name: 'Comune di Cassino',
-    description: 'Municipio, Piazza Labriola',
-    category: 'Città',
-    icon: Icons.account_balance_rounded,
-    latitude: 41.48750,
-    longitude: 13.82950,
-  ),
-  Destination(
-    name: 'Centro Commerciale Ikea / Retail Park',
-    description: 'Via Interamnia, zona commerciale nord',
-    category: 'Città',
-    icon: Icons.shopping_bag_rounded,
-    latitude: 41.50200,
-    longitude: 13.83500,
-  ),
-
-  // --- Università ---
-  Destination(
-    name: 'Università di Cassino',
-    description: 'Campus UniCassino, Via G. Di Biasio 43',
-    category: 'Università',
-    icon: Icons.account_balance_rounded,
-    latitude: 41.48550,
-    longitude: 13.82750,
+    latitude: 41.4842329,
+    longitude: 13.8322095,
   ),
 ];
 
@@ -138,11 +70,13 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocus.requestFocus();
-      SemanticsService.announce(
-        'Schermata selezione destinazione. '
-        'Sono disponibili ${kDestinations.length} destinazioni. '
-        'Usa il campo di ricerca per filtrare, '
-        'o scorri la lista per scegliere.',
+      SemanticsService.sendAnnouncement(
+        TextSpan(
+          text: 'Schermata selezione destinazione. '
+              'Sono disponibili ${kDestinations.length} destinazioni. '
+              'Usa il campo di ricerca per filtrare, '
+              'o scorri la lista per scegliere.',
+        ),
         TextDirection.ltr,
       );
     });
@@ -165,17 +99,21 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
       }).toList();
     });
     final count = _filtered.length;
-    SemanticsService.announce(
-      count == 0
-          ? 'Nessuna destinazione trovata per "$query"'
-          : '$count destinazion${count == 1 ? 'e trovata' : 'i trovate'} per "$query"',
+    SemanticsService.sendAnnouncement(
+      TextSpan(
+        text: count == 0
+            ? 'Nessuna destinazione trovata per "$query"'
+            : '$count destinazion${count == 1 ? 'e trovata' : 'i trovate'} per "$query"',
+      ),
       TextDirection.ltr,
     );
   }
 
   void _selectDestination(Destination dest) {
-    SemanticsService.announce(
-      'Avvio navigazione verso ${dest.name}. ${dest.description}',
+    SemanticsService.sendAnnouncement(
+      TextSpan(
+        text: 'Avvio navigazione verso ${dest.name}. ${dest.description}',
+      ),
       TextDirection.ltr,
     );
     Navigator.pushReplacement(
