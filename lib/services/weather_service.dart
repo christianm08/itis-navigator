@@ -62,7 +62,7 @@ class WeatherService extends ChangeNotifier {
         _description = _wmoDescription(code);
         _icon = _wmoEmoji(code);
 
-        debugPrint('✅ Meteo: ${_temperature}°C, $_description (WMO $code)');
+        debugPrint('✅ Meteo: $_temperature°C, $_description (WMO $code)');
       } else {
         debugPrint('❌ Open-Meteo ${response.statusCode}');
         _useMockData();
