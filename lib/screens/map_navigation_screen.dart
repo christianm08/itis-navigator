@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../services/location_service.dart';
@@ -14,7 +15,12 @@ class MapNavigationScreen extends StatefulWidget {
 class _MapNavigationScreenState extends State<MapNavigationScreen> {
   GoogleMapController? _mapController;
   bool _followUser = true;
+  bool _usingFallbackPosition = false;
+
   static const LatLng _itisLocation = LatLng(41.4688333, 13.8341111);
+
+  // Posizione fallback: centro di Cassino (usata su emulatore senza GPS)
+  static const LatLng _cassinoCenter = LatLng(41.4897, 13.8283);
 
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
@@ -36,16 +42,32 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
     await locationService.forceRefreshPosition();
     final pos = locationService.currentPosition;
 
-    if (pos == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Posizione non disponibile')),
-        );
-      }
-      return;
+    Position startPosition;
+    if (pos != null) {
+      startPosition = pos;
+      _usingFallbackPosition = false;
+    } else {
+      // Fallback: usa centro Cassino se GPS non disponibile (emulatore)
+      startPosition = Position(
+        latitude: _cassinoCenter.latitude,
+        longitude: _cassinoCenter.longitude,
+        timestamp: DateTime.now(),
+        accuracy: 50,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+      _usingFallbackPosition = true;
+      if (mounted) setState(() {});
     }
 
-    await navService.startNavigation(start: pos, destination: _itisLocation);
+    await navService.startNavigation(
+      start: startPosition,
+      destination: _itisLocation,
+    );
     _rebuildMapData();
     locationService.addListener(_handleLocationUpdate);
     if (mounted) setState(() {});
@@ -58,16 +80,28 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
     final position = locationService.currentPosition;
     if (position == null) return;
 
+    // GPS reale disponibile: disabilita fallback
+    if (_usingFallbackPosition) {
+      setState(() => _usingFallbackPosition = false);
+    }
+
     await navService.updatePosition(position);
     _rebuildMapData();
 
     if (_followUser && _mapController != null) {
+      // heading può lanciare errori su emulatori senza bussola
+      double bearing = 0;
+      try {
+        bearing = locationService.heading ?? 0;
+      } catch (_) {
+        bearing = 0;
+      }
       _mapController!.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
             target: LatLng(position.latitude, position.longitude),
             zoom: 18,
-            bearing: locationService.heading ?? 0,
+            bearing: bearing,
             tilt: 45,
           ),
         ),
@@ -106,6 +140,22 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
       ),
     );
 
+    // Marker posizione corrente (reale o fallback)
+    final displayPos = position != null
+        ? LatLng(position.latitude, position.longitude)
+        : _cassinoCenter;
+
+    _circles.add(
+      Circle(
+        circleId: const CircleId('user_position'),
+        center: displayPos,
+        radius: position?.accuracy ?? 50,
+        fillColor: const Color(0x221D4ED8),
+        strokeColor: const Color(0x661D4ED8),
+        strokeWidth: 1,
+      ),
+    );
+
     final currentStep = navService.currentStep;
     if (currentStep != null) {
       _markers.add(
@@ -121,20 +171,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
       );
     }
 
-    if (position != null) {
-      final user = LatLng(position.latitude, position.longitude);
-      _circles.add(
-        Circle(
-          circleId: const CircleId('accuracy'),
-          center: user,
-          radius: position.accuracy,
-          fillColor: const Color(0x221D4ED8),
-          strokeColor: const Color(0x661D4ED8),
-          strokeWidth: 1,
-        ),
-      );
-    }
-
     if (mounted) setState(() {});
   }
 
@@ -145,12 +181,17 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
     final locationService = context.watch<LocationService>();
     final position = locationService.currentPosition;
 
+    // Punto iniziale camera: posizione reale o centro Cassino
+    final cameraTarget = position != null
+        ? LatLng(position.latitude, position.longitude)
+        : _cassinoCenter;
+
     return Scaffold(
       body: Stack(
         children: [
           GoogleMap(
-            initialCameraPosition: const CameraPosition(
-              target: LatLng(41.4766, 13.8310),
+            initialCameraPosition: CameraPosition(
+              target: cameraTarget,
               zoom: 15,
             ),
             markers: _markers,
@@ -160,28 +201,48 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
-            compassEnabled: true,
+            compassEnabled: false, // disabilitato: spam su emulatore
             tiltGesturesEnabled: true,
             rotateGesturesEnabled: true,
             onMapCreated: (controller) {
               _mapController = controller;
-              if (position != null) {
-                controller.animateCamera(
-                  CameraUpdate.newLatLngZoom(
-                    LatLng(position.latitude, position.longitude),
-                    17,
-                  ),
-                );
-              }
+              controller.animateCamera(
+                CameraUpdate.newLatLngZoom(cameraTarget, 15),
+              );
             },
             onCameraMoveStarted: () {
-              if (_followUser) {
-                setState(() {
-                  _followUser = false;
-                });
-              }
+              if (_followUser) setState(() => _followUser = false);
             },
           ),
+
+          // Banner fallback GPS
+          if (_usingFallbackPosition)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 100,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade700,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.location_off, color: Colors.white, size: 18),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'GPS non disponibile — percorso da centro Cassino',
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Top bar istruzioni
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,
@@ -191,7 +252,9 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                 _buildTopButton(
                   icon: Icons.arrow_back_rounded,
                   onTap: () {
-                    context.read<LocationService>().removeListener(_handleLocationUpdate);
+                    context
+                        .read<LocationService>()
+                        .removeListener(_handleLocationUpdate);
                     context.read<NavigationService>().stopNavigation();
                     Navigator.pop(context);
                   },
@@ -199,7 +262,8 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(22),
@@ -217,13 +281,16 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                               const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2.2),
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2.2),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   'Calcolo percorso...',
-                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                  style: theme.textTheme.titleMedium
+                                      ?.copyWith(
+                                          fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
@@ -232,12 +299,17 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                navService.currentInstruction.isEmpty ? 'Preparazione percorso...' : navService.currentInstruction,
+                                navService.currentInstruction.isEmpty
+                                    ? 'Preparazione percorso...'
+                                    : navService.currentInstruction,
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
+                                style: theme.textTheme.titleMedium
+                                    ?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF1F2937),
+                                  color: navService.error != null
+                                      ? Colors.red
+                                      : const Color(0xFF1F2937),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -245,7 +317,12 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                                 navService.error != null
                                     ? navService.error!
                                     : '${navService.getFormattedDistance()} • ETA ${navService.getFormattedETA()}',
-                                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(
+                                  color: navService.error != null
+                                      ? Colors.red.shade300
+                                      : Colors.grey[700],
+                                ),
                               ),
                             ],
                           ),
@@ -254,6 +331,8 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
               ],
             ),
           ),
+
+          // Pulsanti laterali
           Positioned(
             right: 16,
             top: MediaQuery.of(context).padding.top + 120,
@@ -263,38 +342,41 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                   icon: Icons.my_location_rounded,
                   active: _followUser,
                   onTap: () async {
-                    setState(() {
-                      _followUser = true;
-                    });
+                    setState(() => _followUser = true);
                     await locationService.forceRefreshPosition();
                     final current = locationService.currentPosition;
-                    if (current != null && _mapController != null) {
-                      _mapController!.animateCamera(
-                        CameraUpdate.newCameraPosition(
-                          CameraPosition(
-                            target: LatLng(current.latitude, current.longitude),
-                            zoom: 18,
-                            bearing: locationService.heading ?? 0,
-                            tilt: 45,
-                          ),
+                    final target = current != null
+                        ? LatLng(current.latitude, current.longitude)
+                        : _cassinoCenter;
+                    _mapController?.animateCamera(
+                      CameraUpdate.newCameraPosition(
+                        CameraPosition(
+                          target: target,
+                          zoom: 18,
+                          bearing: 0,
+                          tilt: 45,
                         ),
-                      );
-                    }
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 12),
                 _buildTopButton(
                   icon: Icons.add,
-                  onTap: () => _mapController?.animateCamera(CameraUpdate.zoomIn()),
+                  onTap: () =>
+                      _mapController?.animateCamera(CameraUpdate.zoomIn()),
                 ),
                 const SizedBox(height: 12),
                 _buildTopButton(
                   icon: Icons.remove,
-                  onTap: () => _mapController?.animateCamera(CameraUpdate.zoomOut()),
+                  onTap: () =>
+                      _mapController?.animateCamera(CameraUpdate.zoomOut()),
                 ),
               ],
             ),
           ),
+
+          // Bottom bar stato navigazione
           Positioned(
             left: 16,
             right: 16,
@@ -321,10 +403,14 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [theme.colorScheme.primary, theme.colorScheme.secondary]),
+                          gradient: LinearGradient(colors: [
+                            theme.colorScheme.primary,
+                            theme.colorScheme.secondary
+                          ]),
                           borderRadius: BorderRadius.circular(18),
                         ),
-                        child: const Icon(Icons.route_rounded, color: Colors.white),
+                        child: const Icon(Icons.route_rounded,
+                            color: Colors.white),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -332,13 +418,19 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              navService.hasArrived ? 'Destinazione raggiunta' : 'Navigazione attiva',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              navService.hasArrived
+                                  ? 'Destinazione raggiunta'
+                                  : 'Verso ITIS E. Majorana',
+                              style: theme.textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              navService.steps.isEmpty ? 'In attesa del percorso' : 'Manovra ${navService.currentStepIndex + 1}/${navService.steps.length}',
-                              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
+                              navService.steps.isEmpty
+                                  ? 'Calcolo in corso...'
+                                  : 'Manovra ${navService.currentStepIndex + 1}/${navService.steps.length}',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.grey[700]),
                             ),
                           ],
                         ),
@@ -352,15 +444,18 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
                       minHeight: 10,
                       value: navService.progress,
                       backgroundColor: const Color(0xFFE5E7EB),
-                      valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+                      valueColor: AlwaysStoppedAnimation(
+                          theme.colorScheme.primary),
                     ),
                   ),
                   const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildStatChip(theme, Icons.straighten_rounded, navService.getFormattedDistance()),
-                      _buildStatChip(theme, Icons.schedule_rounded, navService.getFormattedETA()),
+                      _buildStatChip(theme, Icons.straighten_rounded,
+                          navService.getFormattedDistance()),
+                      _buildStatChip(theme, Icons.schedule_rounded,
+                          navService.getFormattedETA()),
                     ],
                   ),
                 ],
@@ -372,7 +467,10 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
     );
   }
 
-  Widget _buildTopButton({required IconData icon, required VoidCallback onTap, bool active = false}) {
+  Widget _buildTopButton(
+      {required IconData icon,
+      required VoidCallback onTap,
+      bool active = false}) {
     return Container(
       decoration: BoxDecoration(
         color: active ? Theme.of(context).colorScheme.primary : Colors.white,
@@ -392,7 +490,10 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
           borderRadius: BorderRadius.circular(18),
           child: Padding(
             padding: const EdgeInsets.all(14),
-            child: Icon(icon, color: active ? Colors.white : Theme.of(context).colorScheme.primary),
+            child: Icon(icon,
+                color: active
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.primary),
           ),
         ),
       ),
@@ -401,9 +502,11 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
 
   Widget _buildStatChip(ThemeData theme, IconData icon, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+        color:
+            theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -412,7 +515,9 @@ class _MapNavigationScreenState extends State<MapNavigationScreen> {
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
+            style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1F2937)),
           ),
         ],
       ),

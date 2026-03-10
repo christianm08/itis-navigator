@@ -41,7 +41,10 @@ class NavigationService extends ChangeNotifier {
   LatLng? get destination => _destination;
   List<LatLng> get routePoints => _activeRoute?.polylinePoints ?? const [];
   List<RouteStepModel> get steps => _activeRoute?.steps ?? const [];
-  RouteStepModel? get currentStep => steps.isNotEmpty && _currentStepIndex < steps.length ? steps[_currentStepIndex] : null;
+  RouteStepModel? get currentStep =>
+      steps.isNotEmpty && _currentStepIndex < steps.length
+          ? steps[_currentStepIndex]
+          : null;
   double get totalDistance => _activeRoute?.distanceMeters ?? 0.0;
 
   double get progress {
@@ -79,12 +82,20 @@ class NavigationService extends ChangeNotifier {
       _activeRoute = route;
       _currentStepIndex = 0;
       _remainingDistance = route.distanceMeters;
-      _estimatedTimeRemaining = Duration(seconds: route.durationSeconds.round());
-      _currentInstruction = route.steps.isNotEmpty ? route.steps.first.instruction : 'Procedi verso la destinazione';
+      _estimatedTimeRemaining =
+          Duration(seconds: route.durationSeconds.round());
+      _currentInstruction = route.steps.isNotEmpty
+          ? route.steps.first.instruction
+          : 'Procedi verso la destinazione';
       _isOffRoute = false;
       _lastRerouteAt = DateTime.now();
+      debugPrint('✅ Percorso calcolato: ${route.distanceMeters.round()}m, '
+          '${route.steps.length} passi');
     } catch (e) {
-      _error = 'Percorso non disponibile. Controlla API key o rete.';
+      // Mostra l'errore reale così è più facile debug
+      final errMsg = e.toString().replaceAll('Exception: ', '');
+      debugPrint('❌ Errore routing: $errMsg');
+      _error = errMsg.length > 120 ? '${errMsg.substring(0, 120)}...' : errMsg;
       _currentInstruction = 'Impossibile calcolare il percorso';
       _activeRoute = null;
     } finally {
@@ -121,13 +132,16 @@ class NavigationService extends ChangeNotifier {
     _syncCurrentStep(position);
     _distanceToNextStep = _distanceFromPositionToStep(position);
     _remainingDistance = _calculateRemainingDistance(position);
-    _estimatedTimeRemaining = Duration(seconds: (_remainingDistance / 1.4).round());
-    _currentInstruction = currentStep?.instruction ?? 'Continua sul percorso';
+    _estimatedTimeRemaining =
+        Duration(seconds: (_remainingDistance / 1.4).round());
+    _currentInstruction =
+        currentStep?.instruction ?? 'Continua sul percorso';
 
     final offRouteDistance = _distanceFromPositionToPolyline(position);
     _isOffRoute = offRouteDistance > offRouteThreshold;
 
-    final canReroute = _lastRerouteAt == null || DateTime.now().difference(_lastRerouteAt!).inSeconds >= 8;
+    final canReroute = _lastRerouteAt == null ||
+        DateTime.now().difference(_lastRerouteAt!).inSeconds >= 8;
     if (_isOffRoute && canReroute) {
       await _buildRoute(position);
       if (_activeRoute != null) {
@@ -157,7 +171,8 @@ class NavigationService extends ChangeNotifier {
       }
     }
 
-    if (bestDistance < stepProximityThreshold || bestIndex > _currentStepIndex) {
+    if (bestDistance < stepProximityThreshold ||
+        bestIndex > _currentStepIndex) {
       _currentStepIndex = bestIndex;
     }
   }
@@ -200,9 +215,7 @@ class NavigationService extends ChangeNotifier {
         point.latitude,
         point.longitude,
       );
-      if (distance < minDistance) {
-        minDistance = distance;
-      }
+      if (distance < minDistance) minDistance = distance;
     }
     return minDistance;
   }
