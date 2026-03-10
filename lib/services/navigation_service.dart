@@ -18,9 +18,9 @@ class NavigationService extends ChangeNotifier {
   String? _error;
   RouteDataModel? _activeRoute;
   LatLng? _destination;
+  String _destinationName = '';
   DateTime? _lastRerouteAt;
 
-  // Guard: evita updatePosition se l'utente non si è mosso abbastanza
   Position? _lastProcessedPosition;
   static const double _minMoveMeters = 3.0;
 
@@ -56,8 +56,10 @@ class NavigationService extends ChangeNotifier {
   Future<void> startNavigation({
     required Position start,
     required LatLng destination,
+    String destinationName = '',
   }) async {
     _destination = destination;
+    _destinationName = destinationName;
     _hasArrived = false;
     _isNavigating = true;
     _currentStepIndex = 0;
@@ -91,9 +93,11 @@ class NavigationService extends ChangeNotifier {
       debugPrint('✅ Percorso: ${route.distanceMeters.round()}m, '
           '${route.steps.length} passi');
     } catch (e) {
-      final errMsg = e.toString().replaceAll('Exception: ', '');
-      debugPrint('❌ Errore routing: $errMsg');
-      _error = errMsg.length > 120 ? '${errMsg.substring(0, 120)}...' : errMsg;
+      // Messaggio utente pulito, senza stack trace
+      final raw = e.toString().replaceAll('Exception: ', '');
+      final msg = raw.length > 140 ? '${raw.substring(0, 140)}...' : raw;
+      debugPrint('❌ Errore routing: $msg');
+      _error = msg;
       _currentInstruction = 'Impossibile calcolare il percorso';
       _activeRoute = null;
     } finally {
@@ -105,7 +109,6 @@ class NavigationService extends ChangeNotifier {
   Future<void> updatePosition(Position position) async {
     if (!_isNavigating || _destination == null || _isCalculatingRoute) return;
 
-    // Skip se l'utente non si è mosso abbastanza (evita lavoro inutile)
     final last = _lastProcessedPosition;
     if (last != null) {
       final moved = Geolocator.distanceBetween(
@@ -131,7 +134,9 @@ class NavigationService extends ChangeNotifier {
       _isNavigating = false;
       _remainingDistance = 0;
       _estimatedTimeRemaining = Duration.zero;
-      _currentInstruction = '🎉 Sei arrivato all\'ITIS E. Majorana!';
+      // Messaggio dinamico con il nome della destinazione effettiva
+      final name = _destinationName.isNotEmpty ? _destinationName : 'destinazione';
+      _currentInstruction = '🎉 Sei arrivato a $name!';
       notifyListeners();
       return;
     }
@@ -165,7 +170,10 @@ class NavigationService extends ChangeNotifier {
         position.latitude, position.longitude,
         steps[i].location.latitude, steps[i].location.longitude,
       );
-      if (d < bestDist) { bestDist = d; bestIndex = i; }
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
     }
     if (bestDist < stepProximityThreshold || bestIndex > _currentStepIndex) {
       _currentStepIndex = bestIndex;

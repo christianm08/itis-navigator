@@ -1,45 +1,96 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../models/route_data_model.dart';
 
-/// Routing via OSRM Demo Server (https://project-osrm.org)
-/// - Completamente gratuito, nessuna API key richiesta
-/// - Basato su OpenStreetMap, profilo: foot (a piedi)
+/// Routing a piedi via OSRM (OpenStreetMap)
+/// Primary  : routing.openstreetmap.de  (più stabile)
+/// Fallback : router.project-osrm.org   (demo server)
+/// Nessuna API key richiesta.
 class RoutingService {
-  static const String _baseUrl =
-      'https://router.project-osrm.org/route/v1/foot';
+  static const _timeout = Duration(seconds: 30);
+  static const _maxRetries = 3;
+
+  static const _servers = [
+    'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
+    'https://router.project-osrm.org/route/v1/foot',
+  ];
 
   Future<RouteDataModel> fetchWalkingRoute({
     required LatLng start,
     required LatLng end,
   }) async {
+    Object? lastError;
+
+    for (final server in _servers) {
+      for (int attempt = 1; attempt <= _maxRetries; attempt++) {
+        try {
+          debugPrint('🗺️ [$server] tentativo $attempt');
+          final result = await _fetchFrom(server, start, end);
+          debugPrint('✅ Percorso trovato via $server');
+          return result;
+        } on SocketException catch (e) {
+          lastError = e;
+          debugPrint('⚠️ SocketException $server (tentativo $attempt): $e');
+        } on HttpException catch (e) {
+          lastError = e;
+          debugPrint('⚠️ HttpException $server (tentativo $attempt): $e');
+        } catch (e) {
+          lastError = e;
+          debugPrint('⚠️ Errore $server (tentativo $attempt): $e');
+          // Se il server risponde con errore logico (non 5xx), non ritentare
+          if (e.toString().contains('NoRoute') ||
+              e.toString().contains('InvalidQuery')) {
+            break;
+          }
+        }
+        if (attempt < _maxRetries) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
+      }
+    }
+
+    throw Exception(
+      'Percorso non disponibile. Controlla la connessione e riprova.\n'
+      'Dettaglio: $lastError',
+    );
+  }
+
+  Future<RouteDataModel> _fetchFrom(
+    String baseUrl,
+    LatLng start,
+    LatLng end,
+  ) async {
     final url = Uri.parse(
-      '$_baseUrl/'
+      '$baseUrl/'
       '${start.longitude},${start.latitude}'
       ';'
       '${end.longitude},${end.latitude}'
       '?overview=full&geometries=geojson&steps=true&annotations=false',
     );
 
-    debugPrint('🗺️ OSRM: $url');
+    final response = await http.get(
+      url,
+      headers: {'Accept': 'application/json'},
+    ).timeout(_timeout);
 
-    final response =
-        await http.get(url).timeout(const Duration(seconds: 15));
-
+    if (response.statusCode >= 500) {
+      throw HttpException('HTTP ${response.statusCode}', uri: url);
+    }
     if (response.statusCode != 200) {
-      throw Exception('Errore OSRM: ${response.statusCode} ${response.body}');
+      throw Exception('HTTP ${response.statusCode}: ${response.body}');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    if (data['code'] != 'Ok') {
-      throw Exception(
-          'OSRM: ${data['code']} - ${data['message'] ?? 'percorso non trovato'}');
+    final code = data['code'] as String? ?? '';
+    if (code != 'Ok') {
+      throw Exception('$code: ${data['message'] ?? 'nessun percorso'}');
     }
 
     final routes = data['routes'] as List<dynamic>;
-    if (routes.isEmpty) throw Exception('Nessun percorso trovato');
+    if (routes.isEmpty) throw Exception('Nessun percorso restituito');
 
     final route = routes.first as Map<String, dynamic>;
     final legs = route['legs'] as List<dynamic>;
@@ -53,7 +104,8 @@ class RoutingService {
 
     final List<RouteStepModel> steps = [];
     for (final leg in legs) {
-      final legSteps = (leg as Map<String, dynamic>)['steps'] as List<dynamic>;
+      final legSteps =
+          (leg as Map<String, dynamic>)['steps'] as List<dynamic>;
       for (final step in legSteps) {
         final s = step as Map<String, dynamic>;
         final maneuver = s['maneuver'] as Map<String, dynamic>;
@@ -70,7 +122,8 @@ class RoutingService {
       }
     }
 
-    debugPrint('✅ OSRM: ${(route['distance'] as num).round()}m, ${steps.length} passi');
+    debugPrint('✅ OSRM: ${(route['distance'] as num).round()}m, '
+        '${steps.length} passi');
 
     return RouteDataModel(
       polylinePoints: polylinePoints,
