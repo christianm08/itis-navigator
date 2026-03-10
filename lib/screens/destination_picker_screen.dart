@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'map_navigation_screen.dart';
 
-/// Destinazione interna all'ITIS Majorana
 class Destination {
   final String name;
   final String description;
@@ -21,116 +20,102 @@ class Destination {
   });
 }
 
-/// Tutte le destinazioni disponibili nell'ITIS E. Majorana di Cassino
+/// Destinazioni esterne a Cassino verso cui navigare a piedi
 const List<Destination> kDestinations = [
-  // Ingressi
+  // --- Scuola ---
   Destination(
-    name: 'Ingresso Principale',
-    description: 'Entrata principale su Via S. Angelo',
-    category: 'Ingressi',
-    icon: Icons.door_front_door_rounded,
+    name: 'ITIS E. Majorana',
+    description: 'Ingresso principale, Via S. Angelo 2',
+    category: 'Scuola',
+    icon: Icons.school_rounded,
     latitude: 41.4688333,
     longitude: 13.8341111,
   ),
   Destination(
-    name: 'Ingresso Secondario',
+    name: 'ITIS — Ingresso Secondario',
     description: 'Entrata laterale lato parcheggio',
-    category: 'Ingressi',
+    category: 'Scuola',
     icon: Icons.door_sliding_rounded,
-    latitude: 41.4690000,
-    longitude: 13.8338000,
+    latitude: 41.46905,
+    longitude: 13.83385,
   ),
-  // Uffici
+
+  // --- Trasporti ---
   Destination(
-    name: 'Segreteria',
-    description: 'Ufficio segreteria studenti, piano terra',
-    category: 'Uffici',
-    icon: Icons.admin_panel_settings_rounded,
-    latitude: 41.4688500,
-    longitude: 13.8341500,
-  ),
-  Destination(
-    name: 'Presidenza',
-    description: 'Ufficio del Dirigente Scolastico, primo piano',
-    category: 'Uffici',
-    icon: Icons.business_rounded,
-    latitude: 41.4688700,
-    longitude: 13.8341800,
-  ),
-  // Aule
-  Destination(
-    name: 'Aule Piano Terra',
-    description: 'Aule 1A – 1F, piano terra ala nord',
-    category: 'Aule',
-    icon: Icons.class_rounded,
-    latitude: 41.4689000,
-    longitude: 13.8342000,
+    name: 'Stazione Ferroviaria',
+    description: 'Cassino FS — Piazzale della Stazione',
+    category: 'Trasporti',
+    icon: Icons.train_rounded,
+    latitude: 41.47630,
+    longitude: 13.83150,
   ),
   Destination(
-    name: 'Aule Primo Piano',
-    description: 'Aule 2A – 2F, primo piano',
-    category: 'Aule',
-    icon: Icons.class_rounded,
-    latitude: 41.4689200,
-    longitude: 13.8342200,
+    name: 'Autostazione',
+    description: 'Terminal bus interurbani, Via G. Marconi',
+    category: 'Trasporti',
+    icon: Icons.directions_bus_rounded,
+    latitude: 41.47550,
+    longitude: 13.83050,
   ),
   Destination(
-    name: 'Aule Secondo Piano',
-    description: 'Aule 3A – 3F, secondo piano',
-    category: 'Aule',
-    icon: Icons.class_rounded,
-    latitude: 41.4689400,
-    longitude: 13.8342400,
+    name: 'Fermata Bus Scuola',
+    description: 'Fermata più vicina all\'ITIS su Via S. Angelo',
+    category: 'Trasporti',
+    icon: Icons.bus_alert_rounded,
+    latitude: 41.46950,
+    longitude: 13.83300,
   ),
-  // Laboratori
+
+  // --- Città ---
   Destination(
-    name: 'Laboratorio Informatica',
-    description: 'Lab. informatica con PC, piano terra ala sud',
-    category: 'Laboratori',
-    icon: Icons.computer_rounded,
-    latitude: 41.4688000,
-    longitude: 13.8343000,
-  ),
-  Destination(
-    name: 'Laboratorio Elettronica',
-    description: 'Lab. elettronica e sistemi, primo piano',
-    category: 'Laboratori',
-    icon: Icons.electrical_services_rounded,
-    latitude: 41.4688200,
-    longitude: 13.8343200,
+    name: 'Piazza Diamare',
+    description: 'Piazza principale del centro storico di Cassino',
+    category: 'Città',
+    icon: Icons.location_city_rounded,
+    latitude: 41.48900,
+    longitude: 13.82900,
   ),
   Destination(
-    name: 'Laboratorio Chimica',
-    description: 'Lab. chimica e scienze, piano terra',
-    category: 'Laboratori',
-    icon: Icons.science_rounded,
-    latitude: 41.4688400,
-    longitude: 13.8343400,
+    name: 'Ospedale S. Scolastica',
+    description: 'Pronto soccorso e ospedale civile di Cassino',
+    category: 'Città',
+    icon: Icons.local_hospital_rounded,
+    latitude: 41.48100,
+    longitude: 13.82600,
   ),
-  // Servizi
   Destination(
-    name: 'Biblioteca',
-    description: 'Biblioteca scolastica, piano terra',
-    category: 'Servizi',
+    name: 'Biblioteca Comunale',
+    description: 'Biblioteca pubblica "G. Salvadori", Via G. Di Biasio',
+    category: 'Città',
     icon: Icons.menu_book_rounded,
-    latitude: 41.4689600,
-    longitude: 13.8340000,
+    latitude: 41.48700,
+    longitude: 13.82800,
   ),
   Destination(
-    name: 'Palestra',
-    description: 'Palestra e spogliatoi, piano seminterrato',
-    category: 'Servizi',
-    icon: Icons.sports_gymnastics,
-    latitude: 41.4687000,
-    longitude: 13.8340500,
+    name: 'Comune di Cassino',
+    description: 'Municipio, Piazza Labriola',
+    category: 'Città',
+    icon: Icons.account_balance_rounded,
+    latitude: 41.48750,
+    longitude: 13.82950,
   ),
   Destination(
-    name: 'Mensa / Bar',
-    description: 'Bar scolastico e area ristoro, piano terra',
-    category: 'Servizi',
-    icon: Icons.local_cafe_rounded,
-    latitude: 41.4689800,
-    longitude: 13.8341000,
+    name: 'Centro Commerciale Ikea / Retail Park',
+    description: 'Via Interamnia, zona commerciale nord',
+    category: 'Città',
+    icon: Icons.shopping_bag_rounded,
+    latitude: 41.50200,
+    longitude: 13.83500,
+  ),
+
+  // --- Università ---
+  Destination(
+    name: 'Università di Cassino',
+    description: 'Campus UniCassino, Via G. Di Biasio 43',
+    category: 'Università',
+    icon: Icons.account_balance_rounded,
+    latitude: 41.48550,
+    longitude: 13.82750,
   ),
 ];
 
@@ -151,10 +136,8 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
   @override
   void initState() {
     super.initState();
-    // Autofocus per screen reader: il cursore va subito sul campo di ricerca
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocus.requestFocus();
-      // Annuncio vocale iniziale per screen reader
       SemanticsService.announce(
         'Schermata selezione destinazione. '
         'Sono disponibili ${kDestinations.length} destinazioni. '
@@ -181,24 +164,20 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
             d.category.toLowerCase().contains(_query);
       }).toList();
     });
-
-    // Annuncio risultati per screen reader
     final count = _filtered.length;
     SemanticsService.announce(
       count == 0
           ? 'Nessuna destinazione trovata per "$query"'
-          : '$count destinazion${count == 1 ? "e trovata" : "i trovate"} per "$query"',
+          : '$count destinazion${count == 1 ? 'e trovata' : 'i trovate'} per "$query"',
       TextDirection.ltr,
     );
   }
 
   void _selectDestination(Destination dest) {
-    // Annuncio selezione per screen reader
     SemanticsService.announce(
       'Avvio navigazione verso ${dest.name}. ${dest.description}',
       TextDirection.ltr,
     );
-
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -207,7 +186,6 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
     );
   }
 
-  // Raggruppa per categoria mantenendo l'ordine originale
   Map<String, List<Destination>> get _grouped {
     final map = <String, List<Destination>>{};
     for (final d in _filtered) {
@@ -225,7 +203,6 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // Header con gradiente
           Semantics(
             header: true,
             child: Container(
@@ -252,7 +229,6 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Back button
                   Semantics(
                     button: true,
                     label: 'Torna alla schermata principale',
@@ -287,35 +263,29 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
                   const SizedBox(height: 6),
                   ExcludeSemantics(
                     child: Text(
-                      'Scegli la tua destinazione all\'ITIS',
+                      'Scegli la destinazione a Cassino',
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: Colors.white.withValues(alpha: 0.88),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Campo ricerca
                   Semantics(
                     textField: true,
                     label: 'Cerca destinazione',
-                    hint: 'Scrivi il nome di un\'aula, laboratorio o ufficio',
+                    hint: 'Scrivi stazione, scuola, ospedale…',
                     child: TextField(
                       controller: _searchCtrl,
                       focusNode: _searchFocus,
                       onChanged: _onSearch,
                       textInputAction: TextInputAction.search,
                       style: const TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF1F2937),
-                      ),
+                          fontSize: 16, color: Color(0xFF1F2937)),
                       decoration: InputDecoration(
-                        hintText: 'Cerca aula, laboratorio, ufficio…',
+                        hintText: 'Cerca stazione, scuola, ospedale…',
                         hintStyle: TextStyle(color: Colors.grey[500]),
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: Color(0xFF6B7280),
-                        ),
+                        prefixIcon: const Icon(Icons.search_rounded,
+                            color: Color(0xFF6B7280)),
                         suffixIcon: _query.isNotEmpty
                             ? Semantics(
                                 button: true,
@@ -337,9 +307,7 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
                           borderSide: BorderSide.none,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 18,
-                        ),
+                            horizontal: 20, vertical: 18),
                       ),
                     ),
                   ),
@@ -347,16 +315,13 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
               ),
             ),
           ),
-
-          // Lista destinazioni
           Expanded(
             child: hasResults
                 ? ListView.builder(
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 16),
                     itemCount: _buildItems(grouped).length,
-                    itemBuilder: (context, index) =>
-                        _buildItems(grouped)[index],
+                    itemBuilder: (_, i) => _buildItems(grouped)[i],
                   )
                 : Semantics(
                     liveRegion: true,
@@ -367,17 +332,13 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
                           Icon(Icons.search_off_rounded,
                               size: 64, color: Colors.grey[400]),
                           const SizedBox(height: 16),
-                          Text(
-                            'Nessuna destinazione trovata',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(color: Colors.grey[600]),
-                          ),
+                          Text('Nessuna destinazione trovata',
+                              style: theme.textTheme.titleMedium
+                                  ?.copyWith(color: Colors.grey[600])),
                           const SizedBox(height: 8),
-                          Text(
-                            'Prova con un termine diverso',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: Colors.grey[500]),
-                          ),
+                          Text('Prova con un termine diverso',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.grey[500])),
                         ],
                       ),
                     ),
@@ -388,32 +349,24 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
     );
   }
 
-  /// Costruisce la lista flat con header di categoria + tile destinazioni
   List<Widget> _buildItems(Map<String, List<Destination>> grouped) {
     final theme = Theme.of(context);
     final items = <Widget>[];
-
     for (final entry in grouped.entries) {
-      // Header categoria
-      items.add(
-        Semantics(
-          header: true,
-          child: Padding(
-            padding:
-                const EdgeInsets.only(left: 8, top: 12, bottom: 6),
-            child: Text(
-              entry.key,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.8,
-              ),
+      items.add(Semantics(
+        header: true,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 8, top: 12, bottom: 6),
+          child: Text(
+            entry.key,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
             ),
           ),
         ),
-      );
-
-      // Tile per ogni destinazione
+      ));
       for (final dest in entry.value) {
         items.add(_DestinationTile(
           destination: dest,
@@ -425,28 +378,21 @@ class _DestinationPickerScreenState extends State<DestinationPickerScreen> {
   }
 }
 
-/// Tile accessibile per una singola destinazione
 class _DestinationTile extends StatelessWidget {
   final Destination destination;
   final VoidCallback onTap;
 
-  const _DestinationTile({
-    required this.destination,
-    required this.onTap,
-  });
+  const _DestinationTile({required this.destination, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Semantics(
       button: true,
-      // Label completo letto dallo screen reader in un unico annuncio
-      label: '\'${destination.name}\', ${destination.category}. '
+      label: '${destination.name}, ${destination.category}. '
           '${destination.description}. '
           'Tocca due volte per avviare la navigazione.',
       child: ExcludeSemantics(
-        // ExcludeSemantics evita duplicazioni nei figli
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           child: Material(
@@ -457,7 +403,6 @@ class _DestinationTile extends StatelessWidget {
               onTap: onTap,
               borderRadius: BorderRadius.circular(20),
               child: Container(
-                // Altezza minima 64px per accessibilità motoria (WCAG 2.5.5)
                 constraints: const BoxConstraints(minHeight: 64),
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 14),
@@ -474,7 +419,6 @@ class _DestinationTile extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // Icona categoria
                     Container(
                       width: 48,
                       height: 48,
@@ -482,11 +426,8 @@ class _DestinationTile extends StatelessWidget {
                         color: theme.colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(
-                        destination.icon,
-                        color: theme.colorScheme.primary,
-                        size: 24,
-                      ),
+                      child: Icon(destination.icon,
+                          color: theme.colorScheme.primary, size: 24),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -503,9 +444,8 @@ class _DestinationTile extends StatelessWidget {
                           const SizedBox(height: 3),
                           Text(
                             destination.description,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -513,11 +453,8 @@ class _DestinationTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: theme.colorScheme.primary,
-                      size: 28,
-                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        color: theme.colorScheme.primary, size: 28),
                   ],
                 ),
               ),
