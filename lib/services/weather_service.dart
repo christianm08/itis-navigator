@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 /// Meteo via Open-Meteo (https://open-meteo.com)
 /// - Completamente gratuito, nessuna API key richiesta
 /// - Aggiornato ogni ora da modelli meteorologici europei (DWD/ECMWF)
-/// - Coordinate: ITIS Majorana Cassino (41.4897, 13.8283)
+/// - Coordinate: ITIS Majorana Cassino (41.4849, 13.8296)
 class WeatherService extends ChangeNotifier {
   bool _isLoading = false;
   String _temperature = '--';
@@ -21,8 +21,8 @@ class WeatherService extends ChangeNotifier {
   int get humidity => _humidity;
   double get windSpeed => _windSpeed;
 
-  static const double _lat = 41.4897;
-  static const double _lon = 13.8283;
+  static const double _lat = 41.4849;
+  static const double _lon = 13.8296;
 
   Future<void> fetchWeather() async {
     _isLoading = true;
