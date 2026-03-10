@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'trenitalia_screen.dart' show _BottomSection;
 
 class _BusRun {
   final String time;
@@ -186,6 +185,40 @@ class _MagniScreenState extends State<MagniScreen>
             brandColor: brandColor,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BottomSection extends StatelessWidget {
+  final String officialUrl;
+  final String buttonLabel;
+  final String buttonSemanticLabel;
+  final Color brandColor;
+
+  const _BottomSection({
+    required this.officialUrl,
+    required this.buttonLabel,
+    required this.buttonSemanticLabel,
+    required this.brandColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Semantics(
+        button: true,
+        label: buttonSemanticLabel,
+        child: ElevatedButton(
+          onPressed: () {
+            // Handle button press
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: brandColor,
+          ),
+          child: Text(buttonLabel, style: const TextStyle(color: Colors.white)),
+        ),
       ),
     );
   }

@@ -24,8 +24,8 @@ class Destination {
 const List<Destination> kDestinations = [
   // --- Scuola ---
   Destination(
-    name: 'ITIS - Sede Biennio',
-    description: 'Sede principale, Via S. Angelo 2',
+    name: 'ITIS — Sede Biennio',
+    description: 'Via S. Angelo 2',
     category: 'Scuola',
     icon: Icons.school_rounded,
     latitude: 41.4688333,
@@ -33,7 +33,7 @@ const List<Destination> kDestinations = [
   ),
   Destination(
     name: 'ITIS — Sede Triennio',
-    description: 'Sede triennio, Via S. Angelo 4',
+    description: 'Via S. Angelo 4',
     category: 'Scuola',
     icon: Icons.school_rounded,
     latitude: 41.46905,
@@ -43,12 +43,20 @@ const List<Destination> kDestinations = [
   // --- Trasporti ---
   Destination(
     name: 'Stazione Ferroviaria',
-    description: 'Cassino FS',
+    description: 'Piazzale Ferrovia',
     category: 'Trasporti',
     icon: Icons.train_rounded,
     latitude: 41.4842329,
     longitude: 13.8322095,
   ),
+  Destination(
+    name: 'Deposito Cotral',
+    description: 'Viale Garigliano Via Volturno',
+    category: 'Trasporti',
+    icon: Icons.directions_bus_rounded,
+    latitude: 41.4855114,
+    longitude: 13.8369294,
+  )
 ];
 
 class DestinationPickerScreen extends StatefulWidget {

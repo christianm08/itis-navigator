@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'trenitalia_screen.dart' show _BottomSection;
 
 class _Bus {
   final String time;
@@ -22,29 +21,129 @@ class _Bus {
 // Fonte: tabelle orarie COTRAL SpA
 const _kBuses = [
   // Cassino → Frosinone
-  _Bus(time: '06:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
-  _Bus(time: '07:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
-  _Bus(time: '08:15', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
-  _Bus(time: '13:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
-  _Bus(time: '14:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
-  _Bus(time: '16:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
-  _Bus(time: '18:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
+  _Bus(
+      time: '06:00',
+      line: 'Cassino–Frosinone',
+      from: 'Cassino',
+      to: 'Frosinone',
+      notes: 'Feriale'),
+  _Bus(
+      time: '07:00',
+      line: 'Cassino–Frosinone',
+      from: 'Cassino',
+      to: 'Frosinone',
+      notes: 'Feriale'),
+  _Bus(
+      time: '08:15',
+      line: 'Cassino–Frosinone',
+      from: 'Cassino',
+      to: 'Frosinone',
+      notes: 'Feriale'),
+  _Bus(
+      time: '13:00',
+      line: 'Cassino–Frosinone',
+      from: 'Cassino',
+      to: 'Frosinone',
+      notes: 'Feriale'),
+  _Bus(
+      time: '14:00',
+      line: 'Cassino–Frosinone',
+      from: 'Cassino',
+      to: 'Frosinone',
+      notes: 'Feriale'),
+  _Bus(
+      time: '16:00',
+      line: 'Cassino–Frosinone',
+      from: 'Cassino',
+      to: 'Frosinone',
+      notes: 'Feriale'),
+  _Bus(
+      time: '18:00',
+      line: 'Cassino–Frosinone',
+      from: 'Cassino',
+      to: 'Frosinone',
+      notes: 'Feriale'),
   // Frosinone → Cassino
-  _Bus(time: '06:30', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
-  _Bus(time: '07:30', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
-  _Bus(time: '09:00', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
-  _Bus(time: '13:30', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
-  _Bus(time: '15:00', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
-  _Bus(time: '17:00', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
-  _Bus(time: '19:00', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
+  _Bus(
+      time: '06:30',
+      line: 'Frosinone–Cassino',
+      from: 'Frosinone',
+      to: 'Cassino',
+      notes: 'Feriale'),
+  _Bus(
+      time: '07:30',
+      line: 'Frosinone–Cassino',
+      from: 'Frosinone',
+      to: 'Cassino',
+      notes: 'Feriale'),
+  _Bus(
+      time: '09:00',
+      line: 'Frosinone–Cassino',
+      from: 'Frosinone',
+      to: 'Cassino',
+      notes: 'Feriale'),
+  _Bus(
+      time: '13:30',
+      line: 'Frosinone–Cassino',
+      from: 'Frosinone',
+      to: 'Cassino',
+      notes: 'Feriale'),
+  _Bus(
+      time: '15:00',
+      line: 'Frosinone–Cassino',
+      from: 'Frosinone',
+      to: 'Cassino',
+      notes: 'Feriale'),
+  _Bus(
+      time: '17:00',
+      line: 'Frosinone–Cassino',
+      from: 'Frosinone',
+      to: 'Cassino',
+      notes: 'Feriale'),
+  _Bus(
+      time: '19:00',
+      line: 'Frosinone–Cassino',
+      from: 'Frosinone',
+      to: 'Cassino',
+      notes: 'Feriale'),
   // Cassino → Sora
-  _Bus(time: '06:45', line: 'Cassino–Sora', from: 'Cassino', to: 'Sora', notes: 'Feriale'),
-  _Bus(time: '12:45', line: 'Cassino–Sora', from: 'Cassino', to: 'Sora', notes: 'Feriale'),
-  _Bus(time: '17:45', line: 'Cassino–Sora', from: 'Cassino', to: 'Sora', notes: 'Feriale'),
+  _Bus(
+      time: '06:45',
+      line: 'Cassino–Sora',
+      from: 'Cassino',
+      to: 'Sora',
+      notes: 'Feriale'),
+  _Bus(
+      time: '12:45',
+      line: 'Cassino–Sora',
+      from: 'Cassino',
+      to: 'Sora',
+      notes: 'Feriale'),
+  _Bus(
+      time: '17:45',
+      line: 'Cassino–Sora',
+      from: 'Cassino',
+      to: 'Sora',
+      notes: 'Feriale'),
   // Sora → Cassino
-  _Bus(time: '07:30', line: 'Sora–Cassino', from: 'Sora', to: 'Cassino', notes: 'Feriale'),
-  _Bus(time: '13:30', line: 'Sora–Cassino', from: 'Sora', to: 'Cassino', notes: 'Feriale'),
-  _Bus(time: '18:30', line: 'Sora–Cassino', from: 'Sora', to: 'Cassino', notes: 'Feriale'),
+  _Bus(
+      time: '07:30',
+      line: 'Sora–Cassino',
+      from: 'Sora',
+      to: 'Cassino',
+      notes: 'Feriale'),
+  _Bus(
+      time: '13:30',
+      line: 'Sora–Cassino',
+      from: 'Sora',
+      to: 'Cassino',
+      notes: 'Feriale'),
+  _Bus(
+      time: '18:30',
+      line: 'Sora–Cassino',
+      from: 'Sora',
+      to: 'Cassino',
+      notes: 'Feriale'),
 ];
 
 class CotrAlScreen extends StatefulWidget {
@@ -90,9 +189,7 @@ class _CotrAlScreenState extends State<CotrAlScreen>
 
   List<_Bus> _busesForTab(int i) {
     final (from, to) = _routes[i];
-    return _kBuses
-        .where((b) => b.from == from && b.to == to)
-        .toList()
+    return _kBuses.where((b) => b.from == from && b.to == to).toList()
       ..sort((a, b) => a.time.compareTo(b.time));
   }
 
@@ -205,6 +302,50 @@ class _CotrAlScreenState extends State<CotrAlScreen>
   }
 }
 
+class _BottomSection extends StatelessWidget {
+  final String officialUrl;
+  final String buttonLabel;
+  final String buttonSemanticLabel;
+  final Color brandColor;
+
+  const _BottomSection({
+    required this.officialUrl,
+    required this.buttonLabel,
+    required this.buttonSemanticLabel,
+    required this.brandColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () {
+            // TODO: Implement URL launch
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: brandColor,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          child: Semantics(
+            button: true,
+            label: buttonSemanticLabel,
+            child: Text(
+              buttonLabel,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BusList extends StatelessWidget {
   final List<_Bus> buses;
   final String? nextTime;
@@ -231,12 +372,10 @@ class _BusList extends StatelessWidget {
           child: ExcludeSemantics(
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: isNext
-                    ? brandColor.withValues(alpha: 0.08)
-                    : Colors.white,
+                color:
+                    isNext ? brandColor.withValues(alpha: 0.08) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isNext ? brandColor : Colors.grey.shade200,
@@ -251,7 +390,8 @@ class _BusList extends StatelessWidget {
                       Text(b.time,
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: isNext ? brandColor : const Color(0xFF1F2937),
+                            color:
+                                isNext ? brandColor : const Color(0xFF1F2937),
                           )),
                     ],
                   ),
@@ -261,8 +401,8 @@ class _BusList extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(b.line,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600)),
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600)),
                         if (b.notes.isNotEmpty)
                           Text(b.notes,
                               style: theme.textTheme.bodySmall
