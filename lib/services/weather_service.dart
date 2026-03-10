@@ -77,7 +77,7 @@ class WeatherService extends ChangeNotifier {
           weatherInfo['icon'] as String,
         );
 
-        debugPrint('✅ Meteo: ${_temperature}°C, $_description');
+        debugPrint('✅ Meteo: $_temperature°C, $_description');
       } else if (response.statusCode == 401) {
         debugPrint('❌ API key OpenWeatherMap non valida');
         _useMockData();
