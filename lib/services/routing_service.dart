@@ -1,9 +1,10 @@
+import 'dart:math' as math;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/route_data_model.dart';
 
 /// Fixed walking route from Stazione Cassino to ITIS.
 /// Source: BRouter-1.7.0, pedestrian profile, drawn manually on brouter.de
-/// Distance: 2983m, Duration: ~2129s (~35 min)
+/// Total distance: 2983m, Duration: ~2129s (~35 min)
 const _kRoutePolyline = <LatLng>[
   LatLng(41.485337, 13.831877),
   LatLng(41.485324, 13.831766),
@@ -146,53 +147,121 @@ const _kRoutePolyline = <LatLng>[
   LatLng(41.46887, 13.834205),
 ];
 
+/// Se la posizione è più lontana di questa soglia dal percorso,
+/// mostriamo comunque il percorso dall'inizio (utente non ancora sul tracciato).
+const double _kOffRouteSnapThresholdMeters = 150.0;
+
 class RoutingService {
-  /// Returns the fixed walking route from Stazione to ITIS (or reverse).
-  /// The [waypoints] parameter is accepted for API compatibility but ignored —
-  /// the route is hardcoded from the BRouter GeoJSON drawn by the user.
+  /// Restituisce il percorso fisso, ritagliato dal punto più vicino
+  /// alla posizione [start] fino alla [end].
+  ///
+  /// Comportamento:
+  /// - Determina la direzione (Stazione→ITIS o ITIS→Stazione) in base
+  ///   a quale estremo della polilinea è più vicino alla destinazione.
+  /// - Trova il punto della polilinea più vicino a [start] (snap).
+  /// - Se l'utente è troppo lontano dal percorso (>150 m), parte dall'inizio.
+  /// - Tronca la polilinea da quel punto fino alla fine.
+  /// - Ricalcola distanza e durata proporzionalmente.
   Future<RouteDataModel> fetchWalkingRoute({
     required LatLng start,
     required LatLng end,
     List<LatLng>? waypoints,
   }) async {
-    // Determine direction: if start is closer to the last point, reverse.
-    final polyline = _nearestEnd(start) == _NearestEnd.last
-        ? _kRoutePolyline.reversed.toList()
-        : List<LatLng>.from(_kRoutePolyline);
+    // 1. Orienta la polilinea verso la destinazione
+    final oriented = _orientToward(end);
 
-    final List<RouteStepModel> steps = _buildSteps(polyline);
+    // 2. Snap: trova l'indice del punto più vicino a start
+    final snapResult = _snapToRoute(start, oriented);
+    final snapIndex = snapResult.index;
+    final snapDistanceM = snapResult.distanceMeters;
+
+    // 3. Se troppo lontano dal percorso, parti dall'inizio
+    final startIndex = snapDistanceM > _kOffRouteSnapThresholdMeters
+        ? 0
+        : snapIndex;
+
+    // 4. Tronca: prendi dal punto di snap fino alla fine
+    final trimmed = oriented.sublist(startIndex);
+
+    // 5. Assicura almeno 2 punti
+    final polyline = trimmed.length >= 2 ? trimmed : oriented;
+
+    // 6. Calcola distanza e durata proporzionalmente ai punti rimasti
+    final totalLen = _polylineLength(oriented);
+    final remainingLen = _polylineLength(polyline);
+    final fraction = totalLen > 0 ? remainingLen / totalLen : 1.0;
+    final distanceM = 2983.0 * fraction;
+    final durationS = 2129.0 * fraction;
+
+    final steps = _buildSteps(polyline, distanceM, durationS);
 
     return RouteDataModel(
       polylinePoints: polyline,
       steps: steps,
-      distanceMeters: 2983.0,
-      durationSeconds: 2129.0,
+      distanceMeters: distanceM,
+      durationSeconds: durationS,
     );
   }
 
-  /// Check which endpoint of the hardcoded polyline is closest to [start].
-  _NearestEnd _nearestEnd(LatLng start) {
-    final dFirst = _dist(start, _kRoutePolyline.first);
-    final dLast  = _dist(start, _kRoutePolyline.last);
-    return dFirst <= dLast ? _NearestEnd.first : _NearestEnd.last;
+  /// Ritorna la polilinea orientata in modo che l'ultimo punto sia il
+  /// più vicino alla [destination] (e quindi il primo sia il punto di partenza).
+  List<LatLng> _orientToward(LatLng destination) {
+    final dFirst = _haversineM(_kRoutePolyline.first, destination);
+    final dLast  = _haversineM(_kRoutePolyline.last,  destination);
+    // Se la fine della lista è più vicina alla destinazione → già orientata
+    // Se l'inizio è più vicino alla destinazione → invertiamo
+    return dLast <= dFirst
+        ? List<LatLng>.from(_kRoutePolyline)
+        : _kRoutePolyline.reversed.toList();
   }
 
-  /// Crude squared-distance (no need for real Haversine for just 2 points).
-  double _dist(LatLng a, LatLng b) {
-    final dlat = a.latitude  - b.latitude;
-    final dlng = a.longitude - b.longitude;
-    return dlat * dlat + dlng * dlng;
+  /// Snap: trova il punto della [polyline] più vicino a [pos].
+  /// Restituisce l'indice e la distanza in metri da quel punto.
+  _SnapResult _snapToRoute(LatLng pos, List<LatLng> polyline) {
+    int bestIndex = 0;
+    double bestDist = double.infinity;
+    for (int i = 0; i < polyline.length; i++) {
+      final d = _haversineM(pos, polyline[i]);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
+    }
+    return _SnapResult(bestIndex, bestDist);
   }
 
-  /// Generate minimal turn-by-turn steps from the polyline.
-  /// Produces one "Parti" step at the start and one "Sei arrivato" at the end.
-  List<RouteStepModel> _buildSteps(List<LatLng> polyline) {
+  /// Lunghezza totale di una polilinea in metri (somma segmenti Haversine).
+  double _polylineLength(List<LatLng> pts) {
+    double total = 0;
+    for (int i = 1; i < pts.length; i++) {
+      total += _haversineM(pts[i - 1], pts[i]);
+    }
+    return total;
+  }
+
+  /// Distanza Haversine in metri tra due coordinate.
+  double _haversineM(LatLng a, LatLng b) {
+    const r = 6371000.0; // raggio Terra in metri
+    final lat1 = a.latitude  * math.pi / 180;
+    final lat2 = b.latitude  * math.pi / 180;
+    final dlat = (b.latitude  - a.latitude)  * math.pi / 180;
+    final dlng = (b.longitude - a.longitude) * math.pi / 180;
+    final sinLat = math.sin(dlat / 2);
+    final sinLng = math.sin(dlng / 2);
+    final h = sinLat * sinLat +
+        math.cos(lat1) * math.cos(lat2) * sinLng * sinLng;
+    return 2 * r * math.asin(math.sqrt(h));
+  }
+
+  /// Step minimali: "Parti" all'inizio, "Arrivato" alla fine.
+  List<RouteStepModel> _buildSteps(
+      List<LatLng> polyline, double distanceM, double durationS) {
     return [
       RouteStepModel(
         instruction: 'Parti e segui il percorso',
         location: polyline.first,
-        distance: 2983.0,
-        duration: 2129.0,
+        distance: distanceM,
+        duration: durationS,
       ),
       RouteStepModel(
         instruction: 'Sei arrivato a destinazione',
@@ -204,4 +273,8 @@ class RoutingService {
   }
 }
 
-enum _NearestEnd { first, last }
+class _SnapResult {
+  final int index;
+  final double distanceMeters;
+  const _SnapResult(this.index, this.distanceMeters);
+}
