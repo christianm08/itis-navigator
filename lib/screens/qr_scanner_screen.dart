@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -7,8 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 // Dati dei punti QR (coordinate + password)
 // ─────────────────────────────────────────────
 
-const _stazione = [41.485302, 13.831859];
-const _itis = [41.468840, 13.834258];
+// Coordinate di riferimento: Stazione [41.485302, 13.831859] — ITIS [41.468840, 13.834258]
 
 const _qrPoints = [
   _QrPoint(
@@ -650,15 +648,18 @@ class _QrScanPageState extends State<_QrScanPage> {
         actions: [
           IconButton(
             icon: ValueListenableBuilder(
-              valueListenable: _ctrl.torchState,
-              builder: (_, state, __) => Icon(
-                state == TorchState.on
-                    ? Icons.flash_on_rounded
-                    : Icons.flash_off_rounded,
-                color: state == TorchState.on
-                    ? Colors.yellow
-                    : Colors.white,
-              ),
+              valueListenable: _ctrl,
+              builder: (_, state, __) {
+                final torchState = state.torchState;
+                return Icon(
+                  torchState == TorchState.on
+                      ? Icons.flash_on_rounded
+                      : Icons.flash_off_rounded,
+                  color: torchState == TorchState.on
+                      ? Colors.yellow
+                      : Colors.white,
+                );
+              },
             ),
             onPressed: () => _ctrl.toggleTorch(),
             tooltip: 'Torcia',
