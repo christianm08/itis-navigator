@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -26,9 +25,12 @@ class RoutingService {
     'https://router.project-osrm.org/route/v1/foot',
   ];
 
+  /// [waypoints] = punti intermedi obbligatori (es. i 3 punti QR).
+  /// L'URL OSRM diventa: start ; wp1 ; wp2 ; wp3 ; end
   Future<RouteDataModel> fetchWalkingRoute({
     required LatLng start,
     required LatLng end,
+    List<LatLng> waypoints = const [],
   }) async {
     Object? lastError;
 
@@ -36,18 +38,18 @@ class RoutingService {
       for (int attempt = 1; attempt <= _maxRetries; attempt++) {
         try {
           debugPrint('🗺️ [$server] tentativo $attempt');
-          final result = await _fetch(server, start, end);
+          final result = await _fetch(server, start, end, waypoints);
           debugPrint('✅ Percorso trovato via $server');
           return result;
-        } on TimeoutException catch (e) {
-          lastError = e;
-          debugPrint('⚠️ Timeout $server tentativo $attempt: $e');
         } on SocketException catch (e) {
           lastError = e;
           debugPrint('⚠️ SocketException $server tentativo $attempt: $e');
         } on HttpException catch (e) {
           lastError = e;
           debugPrint('⚠️ HttpException $server tentativo $attempt: $e');
+        } on TimeoutException catch (e) {
+          lastError = e;
+          debugPrint('⚠️ Timeout $server tentativo $attempt: $e');
         } catch (e) {
           lastError = e;
           debugPrint('⚠️ Errore $server tentativo $attempt: $e');
@@ -70,15 +72,16 @@ class RoutingService {
     String baseUrl,
     LatLng start,
     LatLng end,
+    List<LatLng> waypoints,
   ) async {
-    // Nota: il profilo "foot" di OSRM non supporta exclude=motorway/trunk
-    // (quelle classi non esistono nel grafo pedonale → HTTP 400).
-    // Il routing pedonale usa già solo strade percorribili a piedi.
+    // Costruisce la stringa di coordinate: start ; wp1 ; wp2 ; ... ; end
+    final allPoints = [start, ...waypoints, end];
+    final coordStr = allPoints
+        .map((p) => '${p.longitude},${p.latitude}')
+        .join(';');
+
     final uri = Uri.parse(
-      '$baseUrl/'
-      '${start.longitude},${start.latitude}'
-      ';'
-      '${end.longitude},${end.latitude}'
+      '$baseUrl/$coordStr'
       '?overview=full'
       '&geometries=geojson'
       '&steps=true'
