@@ -2,9 +2,9 @@ import 'dart:math' as math;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/route_data_model.dart';
 
-/// Fixed walking route from Stazione Cassino to ITIS.
-/// Source: BRouter-1.7.0, pedestrian profile — simplified route (102 pts).
-/// Distance: 2751m, Duration: ~1965s (~32 min)
+/// Percorso pedonale fisso Stazione Cassino → ITIS.
+/// Fonte: BRouter-1.7.0, profilo pedonale, semplificato (102 pt).
+/// Distanza totale: 2751m  Durata: ~1965s (~32 min)
 const _kRoutePolyline = <LatLng>[
   LatLng(41.485337, 13.831877),
   LatLng(41.485323, 13.831752),
@@ -110,35 +110,48 @@ const _kRoutePolyline = <LatLng>[
   LatLng(41.468911, 13.834234),
 ];
 
-/// Se la posizione è più lontana di questa soglia dal percorso,
-/// mostriamo il percorso dall'inizio (utente non ancora sul tracciato).
-const double _kOffRouteSnapThresholdMeters = 150.0;
+/// Soglia oltre la quale si considera l'utente fuori percorso (metri).
+const double _kOffRouteThresholdM = 40.0;
 
 class RoutingService {
+  /// Restituisce il percorso da seguire a partire dalla posizione [start].
+  ///
+  /// Se [start] è SUL percorso (≤40 m): restituisce la polilinea
+  /// tagliata dal punto di snap in poi.
+  ///
+  /// Se [start] è FUORI percorso (>40 m): restituisce
+  ///   [posizione attuale → punto di snap] + [resto del percorso fisso]
+  /// così la linea blu mostra sempre la strada effettiva da percorrere.
   Future<RouteDataModel> fetchWalkingRoute({
     required LatLng start,
     required LatLng end,
     List<LatLng>? waypoints,
   }) async {
-    // 1. Orienta la polilinea verso la destinazione
+    // 1. Orienta il percorso fisso verso la destinazione
     final oriented = _orientToward(end);
 
-    // 2. Snap: trova il punto più vicino alla posizione attuale
-    final snapResult = _snapToRoute(start, oriented);
-    final startIndex = snapResult.distanceMeters > _kOffRouteSnapThresholdMeters
-        ? 0
-        : snapResult.index;
+    // 2. Snap: trova il punto della polilinea più vicino a start
+    final snap = _snapToRoute(start, oriented);
 
-    // 3. Tronca dal punto di snap fino alla fine
-    final trimmed = oriented.sublist(startIndex);
-    final polyline = trimmed.length >= 2 ? trimmed : oriented;
+    List<LatLng> polyline;
 
-    // 4. Distanza e durata proporzionali ai punti rimasti
-    final totalLen = _polylineLength(oriented);
-    final remainingLen = _polylineLength(polyline);
-    final fraction = totalLen > 0 ? remainingLen / totalLen : 1.0;
-    final distanceM = 2751.0 * fraction;
-    final durationS = 1965.0 * fraction;
+    if (snap.distanceMeters <= _kOffRouteThresholdM) {
+      // --- In percorso: taglia dal punto di snap ---
+      final trimmed = oriented.sublist(snap.index);
+      polyline = trimmed.length >= 2 ? trimmed : oriented;
+    } else {
+      // --- Fuori percorso: raccordo lineare + resto del percorso fisso ---
+      // Il raccordo è una linea retta dalla posizione attuale al punto
+      // di snap — semplice ma sempre corretto a piedi su distanze brevi.
+      final snapPoint = oriented[snap.index];
+      final rest = oriented.sublist(snap.index);
+      polyline = [start, snapPoint, ...rest];
+    }
+
+    // 3. Calcola distanza e durata reali sui segmenti rimasti
+    final distanceM = _polylineLength(polyline);
+    // Velocità media pedonale: 1.4 m/s
+    final durationS = distanceM / 1.4;
 
     return RouteDataModel(
       polylinePoints: polyline,
@@ -148,6 +161,7 @@ class RoutingService {
     );
   }
 
+  /// Orienta la polilinea in modo che la fine sia la destinazione.
   List<LatLng> _orientToward(LatLng destination) {
     final dFirst = _haversineM(_kRoutePolyline.first, destination);
     final dLast  = _haversineM(_kRoutePolyline.last,  destination);
@@ -156,6 +170,7 @@ class RoutingService {
         : _kRoutePolyline.reversed.toList();
   }
 
+  /// Trova il punto della [polyline] più vicino a [pos].
   _SnapResult _snapToRoute(LatLng pos, List<LatLng> polyline) {
     int bestIndex = 0;
     double bestDist = double.infinity;
@@ -169,6 +184,7 @@ class RoutingService {
     return _SnapResult(bestIndex, bestDist);
   }
 
+  /// Lunghezza totale di una polilinea in metri.
   double _polylineLength(List<LatLng> pts) {
     double total = 0;
     for (int i = 1; i < pts.length; i++) {
@@ -177,6 +193,7 @@ class RoutingService {
     return total;
   }
 
+  /// Distanza Haversine in metri tra due coordinate.
   double _haversineM(LatLng a, LatLng b) {
     const r = 6371000.0;
     final lat1 = a.latitude  * math.pi / 180;
@@ -190,6 +207,7 @@ class RoutingService {
     return 2 * r * math.asin(math.sqrt(h));
   }
 
+  /// Step minimali con distanza reale calcolata.
   List<RouteStepModel> _buildSteps(
       List<LatLng> polyline, double distanceM, double durationS) {
     return [
