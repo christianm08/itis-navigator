@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/location_service.dart';
 import '../services/navigation_service.dart';
 import 'destination_picker_screen.dart';
+import 'qr_scanner_screen.dart' show kQrPoints;
 
 class MapNavigationScreen extends StatefulWidget {
   final Destination destination;
@@ -198,6 +199,19 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       infoWindow: InfoWindow(title: widget.destination.name),
     ));
+
+    // Marker punti QR sul percorso
+    for (final qp in kQrPoints) {
+      _markers.add(Marker(
+        markerId: MarkerId('qr_nav_${qp.label}'),
+        position: qp.latLng,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+        infoWindow: InfoWindow(
+          title: qp.label,
+          snippet: 'Punto QR — avvicinati per scansionare',
+        ),
+      ));
+    }
 
     final currentStep = navService.currentStep;
     if (currentStep != null) {
