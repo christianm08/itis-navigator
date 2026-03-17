@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -38,15 +39,15 @@ class RoutingService {
           final result = await _fetch(server, start, end);
           debugPrint('✅ Percorso trovato via $server');
           return result;
+        } on TimeoutException catch (e) {
+          lastError = e;
+          debugPrint('⚠️ Timeout $server tentativo $attempt: $e');
         } on SocketException catch (e) {
           lastError = e;
           debugPrint('⚠️ SocketException $server tentativo $attempt: $e');
         } on HttpException catch (e) {
           lastError = e;
           debugPrint('⚠️ HttpException $server tentativo $attempt: $e');
-        } on TimeoutException catch (e) {
-          lastError = e;
-          debugPrint('⚠️ Timeout $server tentativo $attempt: $e');
         } catch (e) {
           lastError = e;
           debugPrint('⚠️ Errore $server tentativo $attempt: $e');
