@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/location_service.dart';
 import '../services/navigation_service.dart';
 import 'destination_picker_screen.dart';
-import 'qr_scanner_screen.dart' show kQrPoints;
+import 'qr_scanner_screen.dart';
 
 class MapNavigationScreen extends StatefulWidget {
   final Destination destination;
@@ -52,7 +52,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _enterCtrl.forward();
       _initializeNavigation();
-      // Annuncio iniziale per screen reader
       SemanticsService.announce(
         'Navigazione avviata verso ${widget.destination.name}. '
         'Attendi il calcolo del percorso.',
@@ -242,6 +241,13 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     if (mounted) setState(() {});
   }
 
+  void _openQrScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -357,7 +363,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                           ),
                           child: Consumer<NavigationService>(
                             builder: (_, nav, __) {
-                              // Annuncio vocale cambio istruzione
                               if (!nav.isCalculatingRoute &&
                                   nav.currentInstruction.isNotEmpty) {
                                 WidgetsBinding.instance
@@ -446,7 +451,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
             ),
           ),
 
-          // Pulsanti laterali
+          // Pulsanti laterali (destra) — incluso QR scanner
           Positioned(
             right: 16,
             top: MediaQuery.of(context).padding.top + 120,
@@ -497,6 +502,23 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                       onTap: () => _mapController
                           ?.animateCamera(CameraUpdate.zoomOut()),
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Separatore visivo
+                  Container(
+                    width: 48,
+                    height: 1,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Tasto QR Scanner
+                  Semantics(
+                    button: true,
+                    label: 'Apri scanner QR',
+                    child: _buildQrButton(),
                   ),
                 ],
               ),
@@ -647,6 +669,41 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
               color: active
                   ? Colors.white
                   : Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Tasto QR con colore verde distinto dagli altri
+  Widget _buildQrButton() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF059669), Color(0xFF34D399)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF059669).withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _openQrScanner,
+          borderRadius: BorderRadius.circular(18),
+          child: const Padding(
+            padding: EdgeInsets.all(14),
+            child: Icon(
+              Icons.qr_code_scanner_rounded,
+              color: Colors.white,
             ),
           ),
         ),
