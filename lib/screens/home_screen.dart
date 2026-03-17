@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/location_service.dart';
 import '../services/weather_service.dart';
 import 'destination_picker_screen.dart';
+import 'qr_scanner_screen.dart';
 import 'transport_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -131,6 +132,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildNavigationCard(theme),
                 const SizedBox(height: 20),
                 _buildTransportCard(theme),
+                const SizedBox(height: 20),
+                _buildQrCard(theme),
                 const SizedBox(height: 20),
                 _buildSchoolInfoCard(theme),
                 const SizedBox(height: 20),
@@ -271,6 +274,23 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const DestinationPickerScreen()),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQrCard(ThemeData theme) {
+    return Semantics(
+      button: true,
+      label: 'Percorso QR. Scansiona i punti lungo il percorso dalla Stazione all ITIS.',
+      child: _HomeCard(
+        icon: Icons.qr_code_scanner_rounded,
+        iconGradient: const [Color(0xFF059669), Color(0xFF34D399)],
+        title: 'Percorso QR',
+        subtitle: 'Scansiona i 3 punti Stazione → ITIS',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const QrScannerScreen()),
         ),
       ),
     );
