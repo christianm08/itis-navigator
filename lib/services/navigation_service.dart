@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/route_data_model.dart';
+import '../screens/qr_scanner_screen.dart' show kQrPoints;
 import 'routing_service.dart';
 
 class NavigationService extends ChangeNotifier {
@@ -63,11 +64,26 @@ class NavigationService extends ChangeNotifier {
     _hasArrived = false;
     _isNavigating = true;
     _currentStepIndex = 0;
+    _nextWpIndex = 0;        // reset waypoints all'avvio
     _error = null;
     _lastProcessedPosition = null;
     await _buildRoute(start);
     notifyListeners();
   }
+
+  /// Waypoints QR originali nell'ordine corretto.
+  static final List<LatLng> _allQrWaypoints =
+      kQrPoints.map((p) => p.latLng).toList();
+
+  /// Indice del prossimo waypoint QR da raggiungere (0-based).
+  /// Incrementato man mano che ci si avvicina a ciascun punto.
+  int _nextWpIndex = 0;
+
+  static const double _wpProximityM = 40.0; // metri per considerare un WP raggiunto
+
+  /// Restituisce solo i waypoints non ancora raggiunti.
+  List<LatLng> get _remainingWaypoints =>
+      _allQrWaypoints.sublist(_nextWpIndex);
 
   Future<void> _buildRoute(Position start) async {
     if (_destination == null) return;
@@ -79,6 +95,7 @@ class NavigationService extends ChangeNotifier {
       final route = await _routingService.fetchWalkingRoute(
         start: LatLng(start.latitude, start.longitude),
         end: _destination!,
+        waypoints: _remainingWaypoints,
       );
       _activeRoute = route;
       _currentStepIndex = 0;
@@ -141,6 +158,9 @@ class NavigationService extends ChangeNotifier {
       return;
     }
 
+    // Avanza l'indice dei waypoints se ci si avvicina abbastanza
+    _advanceWaypoints(position);
+
     _syncCurrentStep(position);
     _remainingDistance = _calculateRemainingDistance(position);
     _estimatedTimeRemaining =
@@ -159,6 +179,19 @@ class NavigationService extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  void _advanceWaypoints(Position position) {
+    while (_nextWpIndex < _allQrWaypoints.length) {
+      final wp = _allQrWaypoints[_nextWpIndex];
+      final d = Geolocator.distanceBetween(
+          position.latitude, position.longitude, wp.latitude, wp.longitude);
+      if (d <= _wpProximityM) {
+        _nextWpIndex++;
+      } else {
+        break;
+      }
+    }
   }
 
   void _syncCurrentStep(Position position) {
