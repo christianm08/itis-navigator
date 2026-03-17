@@ -30,7 +30,7 @@ class NavigationService extends ChangeNotifier {
   bool _startedFromFallback = false;
 
   static const double stepProximityThreshold = 22.0;
-  static const double offRouteThreshold = 35.0;
+  static const double offRouteThreshold = 40.0;
   static const double arrivalThreshold = 25.0;
 
   bool get isNavigating => _isNavigating;
@@ -178,7 +178,7 @@ class NavigationService extends ChangeNotifier {
     _isOffRoute = offDist > offRouteThreshold;
 
     final canReroute = _lastRerouteAt == null ||
-        DateTime.now().difference(_lastRerouteAt!).inSeconds >= 8;
+        DateTime.now().difference(_lastRerouteAt!).inSeconds >= 3;
     if (_isOffRoute && canReroute) {
       await _buildRoute(position);
       if (_activeRoute != null) _currentInstruction = '⚠️ Percorso ricalcolato';
