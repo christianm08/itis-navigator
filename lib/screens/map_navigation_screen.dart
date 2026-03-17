@@ -131,7 +131,10 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     }
 
     await navService.startNavigation(
-        start: startPosition, destination: _destLatLng);
+        start: startPosition,
+        destination: _destLatLng,
+        fromFallback: _usingFallbackPosition,
+    );
     _rebuildMapData();
     locationService.addListener(_handleLocationUpdate);
     if (mounted) setState(() {});
