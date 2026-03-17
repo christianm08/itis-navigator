@@ -25,6 +25,10 @@ class NavigationService extends ChangeNotifier {
   Position? _lastProcessedPosition;
   static const double _minMoveMeters = 3.0;
 
+  /// true se startNavigation ha usato la posizione di fallback (GPS non pronto).
+  /// Appena arriva la prima posizione GPS reale, ricalcoliamo subito il percorso.
+  bool _startedFromFallback = false;
+
   static const double stepProximityThreshold = 22.0;
   static const double offRouteThreshold = 35.0;
   static const double arrivalThreshold = 25.0;
@@ -58,15 +62,17 @@ class NavigationService extends ChangeNotifier {
     required Position start,
     required LatLng destination,
     String destinationName = '',
+    bool fromFallback = false,
   }) async {
     _destination = destination;
     _destinationName = destinationName;
     _hasArrived = false;
     _isNavigating = true;
     _currentStepIndex = 0;
-    _nextWpIndex = 0;        // reset waypoints all'avvio
+    _nextWpIndex = 0;
     _error = null;
     _lastProcessedPosition = null;
+    _startedFromFallback = fromFallback;
     await _buildRoute(start);
     notifyListeners();
   }
@@ -75,13 +81,9 @@ class NavigationService extends ChangeNotifier {
   static final List<LatLng> _allQrWaypoints =
       kQrPoints.map((p) => p.latLng).toList();
 
-  /// Indice del prossimo waypoint QR da raggiungere (0-based).
-  /// Incrementato man mano che ci si avvicina a ciascun punto.
   int _nextWpIndex = 0;
+  static const double _wpProximityM = 40.0;
 
-  static const double _wpProximityM = 40.0; // metri per considerare un WP raggiunto
-
-  /// Restituisce solo i waypoints non ancora raggiunti.
   List<LatLng> get _remainingWaypoints =>
       _allQrWaypoints.sublist(_nextWpIndex);
 
@@ -110,7 +112,6 @@ class NavigationService extends ChangeNotifier {
       debugPrint('✅ Percorso: ${route.distanceMeters.round()}m, '
           '${route.steps.length} passi');
     } catch (e) {
-      // Messaggio utente pulito, senza stack trace
       final raw = e.toString().replaceAll('Exception: ', '');
       final msg = raw.length > 140 ? '${raw.substring(0, 140)}...' : raw;
       debugPrint('❌ Errore routing: $msg');
@@ -136,6 +137,14 @@ class NavigationService extends ChangeNotifier {
     }
     _lastProcessedPosition = position;
 
+    // Se eravamo partiti dal fallback, ricalcola subito con la posizione reale
+    if (_startedFromFallback) {
+      _startedFromFallback = false;
+      debugPrint('📍 GPS reale ricevuto — ricalcolo percorso da posizione attuale');
+      await _buildRoute(position);
+      return;
+    }
+
     if (_activeRoute == null) {
       await _buildRoute(position);
       return;
@@ -151,16 +160,13 @@ class NavigationService extends ChangeNotifier {
       _isNavigating = false;
       _remainingDistance = 0;
       _estimatedTimeRemaining = Duration.zero;
-      // Messaggio dinamico con il nome della destinazione effettiva
       final name = _destinationName.isNotEmpty ? _destinationName : 'destinazione';
       _currentInstruction = '🎉 Sei arrivato a $name!';
       notifyListeners();
       return;
     }
 
-    // Avanza l'indice dei waypoints se ci si avvicina abbastanza
     _advanceWaypoints(position);
-
     _syncCurrentStep(position);
     _remainingDistance = _calculateRemainingDistance(position);
     _estimatedTimeRemaining =
