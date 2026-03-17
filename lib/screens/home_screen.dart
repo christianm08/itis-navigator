@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/location_service.dart';
 import '../services/weather_service.dart';
-import 'destination_picker_screen.dart';
+import 'destination_picker_screen.dart' show Destination, kDestinations;
+import 'map_navigation_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'transport_screen.dart';
 
@@ -62,6 +63,15 @@ class _HomeScreenState extends State<HomeScreen> {
         const SnackBar(content: Text('Impossibile aprire il sito della scuola')),
       );
     }
+  }
+
+  void _navigateTo(Destination dest) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapNavigationScreen(destination: dest),
+      ),
+    );
   }
 
   @override
@@ -262,19 +272,98 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Card con due bottoni affiancati: Vai a Scuola / Vai alla Stazione
   Widget _buildNavigationCard(ThemeData theme) {
-    return Semantics(
-      button: true,
-      label: 'Inizia navigazione. Tocca per scegliere la destinazione.',
-      child: _HomeCard(
-        icon: Icons.navigation_rounded,
-        iconGradient: [theme.colorScheme.primary, theme.colorScheme.secondary],
-        title: 'Inizia Navigazione',
-        subtitle: 'Scegli la tua destinazione a Cassino',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const DestinationPickerScreen()),
-        ),
+    // Prendo le destinazioni predefinite dal picker
+    final scuola = kDestinations.firstWhere(
+      (d) => d.name.contains('Biennio'),
+      orElse: () => kDestinations.first,
+    );
+    final stazione = kDestinations.firstWhere(
+      (d) => d.name.contains('Stazione'),
+      orElse: () => kDestinations.last,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20, offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.secondary,
+                  ]),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.navigation_rounded,
+                    color: Colors.white, size: 26),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Navigazione',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    Text('Percorso a piedi dalla tua posizione',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.grey[600])),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: 'Vai a Scuola — naviga verso ITIS Biennio',
+                  child: _NavDestButton(
+                    icon: Icons.school_rounded,
+                    label: 'Vai a Scuola',
+                    gradient: [
+                      theme.colorScheme.primary,
+                      theme.colorScheme.secondary,
+                    ],
+                    onTap: () => _navigateTo(scuola),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: 'Vai alla Stazione — naviga verso la Stazione Ferroviaria',
+                  child: _NavDestButton(
+                    icon: Icons.train_rounded,
+                    label: 'Vai alla\nStazione',
+                    gradient: const [Color(0xFF1565C0), Color(0xFF42A5F5)],
+                    onTap: () => _navigateTo(stazione),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -385,6 +474,62 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// Bottone destinazione navigazione
+class _NavDestButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final List<Color> gradient;
+  final VoidCallback onTap;
+
+  const _NavDestButton({
+    required this.icon,
+    required this.label,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradient,
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: Colors.white, size: 30),
+                const SizedBox(height: 10),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Card riusabile per la home
 class _HomeCard extends StatelessWidget {
   final IconData icon;
@@ -448,8 +593,8 @@ class _HomeCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(Icons.arrow_forward_ios,
-                      color: theme.colorScheme.primary),
+                  Icon(Icons.chevron_right_rounded,
+                      color: theme.colorScheme.primary, size: 28),
                 ],
               ),
             ),
