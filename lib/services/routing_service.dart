@@ -160,7 +160,7 @@ class RoutingService {
         ? _kRoutePolyline.reversed.toList()
         : List<LatLng>.from(_kRoutePolyline);
 
-    final steps = _buildSteps(polyline);
+    final List<RouteStepModel> steps = _buildSteps(polyline);
 
     return RouteDataModel(
       polylinePoints: polyline,
@@ -186,17 +186,19 @@ class RoutingService {
 
   /// Generate minimal turn-by-turn steps from the polyline.
   /// Produces one "Parti" step at the start and one "Sei arrivato" at the end.
-  List<RouteStep> _buildSteps(List<LatLng> polyline) {
+  List<RouteStepModel> _buildSteps(List<LatLng> polyline) {
     return [
-      RouteStep(
+      RouteStepModel(
         instruction: 'Parti e segui il percorso',
         location: polyline.first,
-        distanceMeters: 2983.0,
+        distance: 2983.0,
+        duration: 2129.0,
       ),
-      RouteStep(
+      RouteStepModel(
         instruction: 'Sei arrivato a destinazione',
         location: polyline.last,
-        distanceMeters: 0,
+        distance: 0,
+        duration: 0,
       ),
     ];
   }
