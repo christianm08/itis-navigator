@@ -70,6 +70,9 @@ class RoutingService {
     LatLng start,
     LatLng end,
   ) async {
+    // Nota: il profilo "foot" di OSRM non supporta exclude=motorway/trunk
+    // (quelle classi non esistono nel grafo pedonale → HTTP 400).
+    // Il routing pedonale usa già solo strade percorribili a piedi.
     final uri = Uri.parse(
       '$baseUrl/'
       '${start.longitude},${start.latitude}'
@@ -78,8 +81,7 @@ class RoutingService {
       '?overview=full'
       '&geometries=geojson'
       '&steps=true'
-      '&annotations=false'
-      '&exclude=motorway%2Ctrunk',  // esclude autostrade e strade di scorrimento
+      '&annotations=false',
     );
 
     debugPrint('🔗 URL: $uri');
