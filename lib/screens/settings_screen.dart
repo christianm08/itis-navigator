@@ -15,7 +15,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _voiceEnabled = true;
   double _speechRate = 0.5;
-  String _userType = 'biennio';
   bool _loading = true;
 
   @override
@@ -29,30 +28,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _voiceEnabled = prefs.getBool('tts_enabled') ?? true;
       _speechRate = prefs.getDouble('tts_speech_rate') ?? 0.5;
-      _userType = prefs.getString('user_type') ?? 'biennio';
       _loading = false;
     });
-    // Sincronizza TtsService
     if (mounted) {
       context.read<TtsService>().setEnabled(_voiceEnabled);
     }
-  }
-
-  Future<void> _savePrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('tts_enabled', _voiceEnabled);
-    await prefs.setDouble('tts_speech_rate', _speechRate);
-    await prefs.setString('user_type', _userType);
   }
 
   Future<void> _resetOnboarding() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Ripeti configurazione?'),
         content: const Text(
-          'Verrai riportato alla schermata iniziale di configurazione.'),
+            'Verrai riportato alla schermata iniziale di configurazione.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -65,12 +56,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-
     if (confirm != true || !mounted) return;
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done', false);
-
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const OnboardingScreen()),
@@ -103,8 +91,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
               children: [
-                // ── Voce ────────────────────────────────────────────────
-                _SectionHeader(label: 'Guida vocale', icon: Icons.record_voice_over_rounded),
+                _SectionHeader(
+                    label: 'Guida vocale',
+                    icon: Icons.record_voice_over_rounded),
                 const SizedBox(height: 12),
 
                 // Toggle voce
@@ -127,10 +116,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           setState(() => _voiceEnabled = v);
                           context.read<TtsService>().setEnabled(v);
                           if (v) {
-                            context.read<TtsService>().speak(
-                                'Guida vocale attivata.');
+                            context
+                                .read<TtsService>()
+                                .speak('Guida vocale attivata.');
                           }
-                          _savePrefs();
+                          SharedPreferences.getInstance().then(
+                              (p) => p.setBool('tts_enabled', v));
                         },
                       ),
                     ),
@@ -142,12 +133,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsTile(
                     icon: Icons.speed_rounded,
                     iconColor: cs.primary,
-                    title: 'Velocità voce',
+                    title: 'Velocita voce',
                     subtitle: _rateLabel(_speechRate),
                     trailing: null,
                   ),
                   Semantics(
-                    label: 'Velocità voce: ${_rateLabel(_speechRate)}. Scorri per cambiare.',
+                    label:
+                        'Velocita voce: ${_rateLabel(_speechRate)}. Scorri per cambiare.',
                     child: Slider(
                       value: _speechRate,
                       min: 0.3,
@@ -155,10 +147,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       divisions: 4,
                       label: _rateLabel(_speechRate),
                       onChanged: (v) => setState(() => _speechRate = v),
-                      onChangeEnd: (v) {
-                        _savePrefs();
-                        context.read<TtsService>().speak(
-                            'Questa è la velocità selezionata.');
+                      onChangeEnd: (v) async {
+                        await context.read<TtsService>().setSpeechRate(v);
+                        context
+                            .read<TtsService>()
+                            .speak('Questa e la velocita selezionata.');
                       },
                     ),
                   ),
@@ -177,15 +170,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Pulsante test voce
                   Center(
                     child: Semantics(
                       button: true,
                       label: 'Prova voce. Tocca per sentire un esempio.',
                       child: OutlinedButton.icon(
                         onPressed: () => context.read<TtsService>().speak(
-                          'Tra 50 metri, svolta a destra in Via Sant Angelo.',
-                        ),
+                            'Tra 50 metri, svolta a destra in Via Sant Angelo.'),
                         icon: const Icon(Icons.play_arrow_rounded),
                         label: const Text('Prova voce'),
                         style: OutlinedButton.styleFrom(
@@ -199,56 +190,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 const SizedBox(height: 28),
 
-                // ── Profilo ─────────────────────────────────────────────
                 _SectionHeader(
-                    label: 'Profilo scolastico',
-                    icon: Icons.school_rounded),
-                const SizedBox(height: 12),
-
-                Semantics(
-                  label: 'Biennio. Anni primo e secondo, ingresso principale. '
-                      '${_userType == 'biennio' ? 'Selezionato.' : 'Tocca per selezionare.'}',
-                  button: true,
-                  selected: _userType == 'biennio',
-                  child: _SelectableTile(
-                    icon: Icons.school_outlined,
-                    title: 'Biennio',
-                    subtitle: 'Anni 1° e 2° — ingresso principale',
-                    selected: _userType == 'biennio',
-                    onTap: () {
-                      setState(() => _userType = 'biennio');
-                      _savePrefs();
-                      context
-                          .read<TtsService>()
-                          .speak('Selezionato Biennio.');
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Semantics(
-                  label: 'Triennio. Anni terzo, quarto e quinto, ingresso laterale. '
-                      '${_userType == 'triennio' ? 'Selezionato.' : 'Tocca per selezionare.'}',
-                  button: true,
-                  selected: _userType == 'triennio',
-                  child: _SelectableTile(
-                    icon: Icons.school_rounded,
-                    title: 'Triennio',
-                    subtitle: 'Anni 3°, 4° e 5° — ingresso laterale',
-                    selected: _userType == 'triennio',
-                    onTap: () {
-                      setState(() => _userType = 'triennio');
-                      _savePrefs();
-                      context
-                          .read<TtsService>()
-                          .speak('Selezionato Triennio.');
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // ── App ─────────────────────────────────────────────────
-                _SectionHeader(label: 'App', icon: Icons.settings_rounded),
+                    label: 'App', icon: Icons.settings_rounded),
                 const SizedBox(height: 12),
 
                 Semantics(
@@ -264,9 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: _resetOnboarding,
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 _SettingsTile(
                   icon: Icons.info_outline_rounded,
                   iconColor: Colors.grey,
@@ -279,8 +220,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
-
-// ── Widget ausiliari ────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   final String label;
@@ -347,7 +286,8 @@ class _SettingsTile extends StatelessWidget {
             onTap: onTap,
             borderRadius: BorderRadius.circular(18),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   Container(
@@ -364,8 +304,8 @@ class _SettingsTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(title,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w600)),
+                            style: theme.textTheme.bodyLarge
+                                ?.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 2),
                         Text(subtitle,
                             style: theme.textTheme.bodySmall
@@ -376,84 +316,6 @@ class _SettingsTile extends StatelessWidget {
                   if (trailing != null) trailing!,
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectableTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SelectableTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-    return ExcludeSemantics(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        decoration: BoxDecoration(
-          color: selected ? cs.primaryContainer : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? cs.primary : Colors.grey.shade200,
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: selected
-                  ? cs.primary.withOpacity(0.12)
-                  : Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Icon(icon,
-                    color: selected ? cs.primary : Colors.grey, size: 28),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: selected ? cs.primary : null,
-                          )),
-                      const SizedBox(height: 2),
-                      Text(subtitle,
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey[600])),
-                    ],
-                  ),
-                ),
-                if (selected)
-                  Icon(Icons.check_circle_rounded,
-                      color: cs.primary, size: 24),
-              ],
             ),
           ),
         ),
