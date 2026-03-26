@@ -1,11 +1,12 @@
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Servizio Text-to-Speech.
 /// - Attende sempre che _init() sia completo prima di speak()
 /// - Controlla se it-IT e' disponibile; se no, espone [italianAvailable] = false
-///   cosi' l'UI puo' mostrare un avviso per installare la voce italiana.
 class TtsService extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
 
@@ -17,7 +18,6 @@ class TtsService extends ChangeNotifier {
 
   bool get enabled => _enabled;
   bool get isSpeaking => _isSpeaking;
-  /// false se il motore it-IT non e' installato sul dispositivo
   bool get italianAvailable => _italianAvailable;
 
   String _lastSpoken = '';
@@ -32,17 +32,15 @@ class TtsService extends ChangeNotifier {
       final rate = prefs.getDouble('tts_speech_rate') ?? 0.5;
       _enabled = prefs.getBool('tts_enabled') ?? true;
 
-      // Controlla lingue disponibili
       final languages = await _tts.getLanguages as List?;
-      final hasItalian = languages?.any((l) =>
-              l.toString().toLowerCase().startsWith('it')) ??
-          false;
+      final hasItalian =
+          languages?.any((l) => l.toString().toLowerCase().startsWith('it')) ??
+              false;
 
       if (hasItalian) {
         await _tts.setLanguage('it-IT');
         _italianAvailable = true;
       } else {
-        // Fallback inglese cosi' almeno si sente qualcosa
         await _tts.setLanguage('en-US');
         _italianAvailable = false;
         debugPrint('TTS: it-IT non disponibile, fallback en-US');
@@ -53,18 +51,9 @@ class TtsService extends ChangeNotifier {
       await _tts.setPitch(1.0);
       await _tts.awaitSpeakCompletion(false);
 
-      _tts.setStartHandler(() {
-        _isSpeaking = true;
-        notifyListeners();
-      });
-      _tts.setCompletionHandler(() {
-        _isSpeaking = false;
-        notifyListeners();
-      });
-      _tts.setCancelHandler(() {
-        _isSpeaking = false;
-        notifyListeners();
-      });
+      _tts.setStartHandler(() { _isSpeaking = true; notifyListeners(); });
+      _tts.setCompletionHandler(() { _isSpeaking = false; notifyListeners(); });
+      _tts.setCancelHandler(() { _isSpeaking = false; notifyListeners(); });
       _tts.setErrorHandler((msg) {
         debugPrint('TTS errore: $msg');
         _isSpeaking = false;
@@ -72,8 +61,7 @@ class TtsService extends ChangeNotifier {
       });
 
       notifyListeners();
-      debugPrint(
-          'TTS pronto — italiano: $_italianAvailable, rate: $rate, enabled: $_enabled');
+      debugPrint('TTS pronto — italiano: $_italianAvailable, rate: $rate');
     } catch (e) {
       debugPrint('TTS init fallito: $e');
     }
@@ -82,12 +70,9 @@ class TtsService extends ChangeNotifier {
   Future<void> speak(String text) async {
     if (!_enabled || text.isEmpty) return;
     await _ready;
-
     final cleaned = _cleanForSpeech(text);
-    if (cleaned.isEmpty) return;
-    if (cleaned == _lastSpoken) return;
+    if (cleaned.isEmpty || cleaned == _lastSpoken) return;
     _lastSpoken = cleaned;
-
     try {
       await _tts.stop();
       await _tts.speak(cleaned);
@@ -125,6 +110,18 @@ class TtsService extends ChangeNotifier {
     _enabled = value;
     if (!_enabled) stop();
     notifyListeners();
+  }
+
+  /// Apre le impostazioni TTS di Android.
+  Future<void> openTtsSettings() async {
+    try {
+      const intent = AndroidIntent(
+        action: 'com.android.settings.TTS_SETTINGS',
+      );
+      await intent.launch();
+    } catch (e) {
+      debugPrint('Impossibile aprire impostazioni TTS: $e');
+    }
   }
 
   String _cleanForSpeech(String text) {
