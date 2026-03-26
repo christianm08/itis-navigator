@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'services/location_service.dart';
 import 'services/navigation_service.dart';
+import 'services/tts_service.dart';
 import 'services/weather_service.dart';
 
 Future<void> main() async {
@@ -33,7 +34,11 @@ class ItisNavigatorApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LocationService()),
-        ChangeNotifierProvider(create: (_) => NavigationService()),
+        ChangeNotifierProvider(create: (_) => TtsService()),
+        ChangeNotifierProxyProvider<TtsService, NavigationService>(
+          create: (_) => NavigationService(),
+          update: (_, tts, nav) => nav!..attachTts(tts),
+        ),
         ChangeNotifierProvider(create: (_) => WeatherService()),
       ],
       child: MaterialApp(

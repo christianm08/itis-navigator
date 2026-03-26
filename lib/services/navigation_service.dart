@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/route_data_model.dart';
 import '../screens/qr_scanner_screen.dart' show kQrPoints;
 import 'routing_service.dart';
+import 'tts_service.dart';
 
 class NavigationService extends ChangeNotifier {
   final RoutingService _routingService = RoutingService();
@@ -21,6 +22,9 @@ class NavigationService extends ChangeNotifier {
   LatLng? _destination;
   String _destinationName = '';
   DateTime? _lastRerouteAt;
+
+  /// Riferimento al servizio TTS per gli annunci vocali.
+  TtsService? _ttsService;
 
   Position? _lastProcessedPosition;
   static const double _minMoveMeters = 3.0;
@@ -58,6 +62,16 @@ class NavigationService extends ChangeNotifier {
     return ((total - _remainingDistance) / total).clamp(0.0, 1.0);
   }
 
+  /// Collega il servizio TTS. Chiamare prima di startNavigation.
+  void attachTts(TtsService tts) {
+    _ttsService = tts;
+  }
+
+  /// Annuncio vocale — no-op se TTS non collegato.
+  void _announce(String text) {
+    _ttsService?.speak(text);
+  }
+
   Future<void> startNavigation({
     required Position start,
     required LatLng destination,
@@ -74,6 +88,13 @@ class NavigationService extends ChangeNotifier {
     _lastProcessedPosition = null;
     _startedFromFallback = fromFallback;
     await _buildRoute(start);
+
+    // Annuncio vocale di avvio
+    final name = _destinationName.isNotEmpty ? _destinationName : 'destinazione';
+    _announce('Navigazione avviata verso $name. '
+        'Distanza: ${getFormattedDistance()}. '
+        'Tempo stimato: ${getFormattedETA()}.');
+
     notifyListeners();
   }
 
@@ -162,9 +183,15 @@ class NavigationService extends ChangeNotifier {
       _estimatedTimeRemaining = Duration.zero;
       final name = _destinationName.isNotEmpty ? _destinationName : 'destinazione';
       _currentInstruction = '🎉 Sei arrivato a $name!';
+
+      // Annuncio vocale arrivo
+      _announce('Sei arrivato a $name.');
+
       notifyListeners();
       return;
     }
+
+    final prevStepIndex = _currentStepIndex;
 
     _advanceWaypoints(position);
     _syncCurrentStep(position);
@@ -174,12 +201,20 @@ class NavigationService extends ChangeNotifier {
     _currentInstruction =
         currentStep?.instruction ?? 'Continua sul percorso';
 
+    // Annuncio vocale cambio step
+    if (_currentStepIndex != prevStepIndex && currentStep != null) {
+      _announce(currentStep!.instruction);
+    }
+
     final offDist = _distanceFromPositionToPolyline(position);
     _isOffRoute = offDist > offRouteThreshold;
 
     final canReroute = _lastRerouteAt == null ||
         DateTime.now().difference(_lastRerouteAt!).inSeconds >= 3;
     if (_isOffRoute && canReroute) {
+      // Annuncio vocale off-route
+      _announce('Sei fuori percorso. Ricalcolo in corso.');
+
       await _buildRoute(position);
       if (_activeRoute != null) _currentInstruction = '⚠️ Percorso ricalcolato';
     }
@@ -267,6 +302,7 @@ class NavigationService extends ChangeNotifier {
 
   void stopNavigation() {
     _isNavigating = false;
+    _ttsService?.stop();
     notifyListeners();
   }
 }

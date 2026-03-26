@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../services/location_service.dart';
 import '../services/navigation_service.dart';
+import '../services/tts_service.dart';
 import 'destination_picker_screen.dart';
 import 'qr_scanner_screen.dart';
 
@@ -504,6 +505,23 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                       icon: Icons.remove,
                       onTap: () => _mapController
                           ?.animateCamera(CameraUpdate.zoomOut()),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Tasto mute/unmute voce
+                  Consumer<TtsService>(
+                    builder: (_, tts, __) => Semantics(
+                      button: true,
+                      label: tts.enabled
+                          ? 'Disattiva indicazioni vocali'
+                          : 'Attiva indicazioni vocali',
+                      child: _buildTopButton(
+                        icon: tts.enabled
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
+                        active: tts.enabled,
+                        onTap: () => tts.toggle(),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
