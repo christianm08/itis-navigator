@@ -30,6 +30,9 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   final Set<Polyline> _polylines = {};
   final Set<Circle> _circles = {};
 
+  // Posizioni schermo dei punti QR (aggiornate ad ogni rebuild)
+  final Map<String, Offset> _qrScreenPositions = {};
+
   int _lastRoutePointsHash = 0;
   LatLng? _lastCameraTarget;
   static const double _cameraUpdateThreshold = 2.0;
@@ -43,7 +46,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   late final Animation<double> _bannerFade;
   late final Animation<Offset> _bannerSlide;
 
-  // Stato punti QR sbloccati (condiviso con QrCameraPage)
   Set<String> _unlockedQr = {};
   static const _kPrefsKey = 'qr_unlocked_points';
 
@@ -97,8 +99,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
         Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(
             CurvedAnimation(
                 parent: _enterCtrl,
-                curve:
-                    const Interval(0.2, 0.85, curve: Curves.easeOutCubic)));
+                curve: const Interval(0.2, 0.85, curve: Curves.easeOutCubic)));
     _bannerFade = CurvedAnimation(
         parent: _enterCtrl,
         curve: const Interval(0.15, 0.65, curve: Curves.easeOut));
@@ -106,8 +107,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
         Tween<Offset>(begin: const Offset(0, -0.6), end: Offset.zero).animate(
             CurvedAnimation(
                 parent: _enterCtrl,
-                curve:
-                    const Interval(0.15, 0.65, curve: Curves.easeOutCubic)));
+                curve: const Interval(0.15, 0.65, curve: Curves.easeOutCubic)));
   }
 
   Future<void> _initializeNavigation() async {
@@ -192,17 +192,24 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       infoWindow: InfoWindow(title: widget.destination.name),
     ));
+
+    // Marker QR: viola se sbloccato, giallo se no
     for (final qp in kQrPoints) {
+      final unlocked = _unlockedQr.contains(qp.label);
       _markers.add(Marker(
         markerId: MarkerId('qr_nav_${qp.label}'),
         position: qp.latLng,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+        icon: BitmapDescriptor.defaultMarkerWithHue(
+          unlocked ? BitmapDescriptor.hueViolet : BitmapDescriptor.hueYellow,
+        ),
         infoWindow: InfoWindow(
           title: qp.label,
-          snippet: 'Punto QR — avvicinati per scansionare',
+          snippet: unlocked ? '✅ Sbloccato — tocca ℹ️ per i dettagli' : 'Avvicinati e scansiona il QR',
         ),
+        onTap: unlocked ? () => _showPlaceSheet(qp) : null,
       ));
     }
+
     final currentStep = navService.currentStep;
     if (currentStep != null) {
       _markers.add(Marker(
@@ -226,9 +233,38 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       strokeWidth: 1,
     ));
     if (mounted) setState(() {});
+    // Aggiorna posizioni schermo degli overlay dopo il frame
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateQrScreenPositions());
   }
 
-  /// Apre direttamente la fotocamera QR — riconosce qualsiasi punto automaticamente.
+  /// Converte lat/lng dei punti QR sbloccati in coordinate schermo per gli overlay.
+  Future<void> _updateQrScreenPositions() async {
+    final ctrl = _mapController;
+    if (ctrl == null || !mounted) return;
+    final Map<String, Offset> updated = {};
+    for (final qp in kQrPoints) {
+      if (!_unlockedQr.contains(qp.label)) continue;
+      try {
+        final sp = await ctrl.getScreenCoordinate(qp.latLng);
+        updated[qp.label] = Offset(sp.x.toDouble(), sp.y.toDouble());
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _qrScreenPositions
+      ..clear()
+      ..addAll(updated));
+  }
+
+  /// Mostra il bottom sheet con le informazioni del luogo (riutilizza _PlaceInfoSheet da qr_scanner_screen).
+  void _showPlaceSheet(QrPoint point) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _QrInfoSheetWrapper(point: point),
+    );
+  }
+
   Future<void> _openQrScanner() async {
     await Navigator.push<void>(
       context,
@@ -239,10 +275,13 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
           onUnlock: (label) {
             setState(() => _unlockedQr.add(label));
             _saveUnlockedQr();
+            _rebuildMapData();
           },
         ),
       ),
     );
+    // Aggiorna anche al ritorno dalla camera (nel caso)
+    _rebuildMapData();
   }
 
   @override
@@ -275,7 +314,40 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
             onCameraMoveStarted: () {
               if (_followUser) setState(() => _followUser = false);
             },
+            onCameraIdle: () => _updateQrScreenPositions(),
+            onCameraMove: (_) => _updateQrScreenPositions(),
           ),
+
+          // ── Overlay icone ✅ sui punti QR sbloccati ──────────────────────
+          for (final qp in kQrPoints)
+            if (_unlockedQr.contains(qp.label) &&
+                _qrScreenPositions.containsKey(qp.label))
+              Positioned(
+                left: _qrScreenPositions[qp.label]!.dx - 18,
+                // -52 per stare sopra al marker (alto ~44px)
+                top: _qrScreenPositions[qp.label]!.dy - 52,
+                child: GestureDetector(
+                  onTap: () => _showPlaceSheet(qp),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade600,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.shade900.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.info_outline_rounded,
+                        color: Colors.white, size: 18),
+                  ),
+                ),
+              ),
 
           // Banner GPS fallback
           if (_usingFallbackPosition)
@@ -496,7 +568,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                         borderRadius: BorderRadius.circular(1)),
                   ),
                   const SizedBox(height: 20),
-                  // Tasto QR — apre direttamente la fotocamera
                   Semantics(
                     button: true,
                     label: 'Scansiona QR code',
@@ -697,5 +768,170 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     context.read<NavigationService>().stopNavigation();
     _mapController?.dispose();
     super.dispose();
+  }
+}
+
+// ─── Wrapper bottom sheet info luogo (riusa _PlaceInfoSheet via export) ───────
+// Mostra le info del punto QR sbloccato senza necessità di ri-scansionare.
+
+class _QrInfoSheetWrapper extends StatelessWidget {
+  final QrPoint point;
+  const _QrInfoSheetWrapper({required this.point});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasImage = point.placeImageAsset.isNotEmpty;
+    final name = point.placeName.isNotEmpty ? point.placeName : point.label;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.70,
+      minChildSize: 0.45,
+      maxChildSize: 0.92,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 4),
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                children: [
+                  // Badge sbloccato
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_rounded,
+                              color: Colors.green.shade600, size: 18),
+                          const SizedBox(width: 6),
+                          Text('${point.label} sbloccato!',
+                              style: TextStyle(
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  // Immagine o placeholder
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: hasImage
+                        ? Image.asset(point.placeImageAsset,
+                            height: 200, width: double.infinity, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _placeholder(theme))
+                        : _placeholder(theme),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(name,
+                      style: theme.textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  if (point.placeAddress.isNotEmpty) ...[
+                    Row(children: [
+                      Icon(Icons.location_on_outlined,
+                          size: 18, color: Colors.grey.shade600),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(point.placeAddress,
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: Colors.grey.shade600)),
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+                  ],
+                  Divider(color: Colors.grey.shade200, height: 1),
+                  const SizedBox(height: 16),
+                  Text(
+                    point.placeDescription.isNotEmpty
+                        ? point.placeDescription
+                        : 'Descrizione non ancora disponibile.',
+                    style: theme.textTheme.bodyLarge
+                        ?.copyWith(color: Colors.grey.shade800, height: 1.6),
+                  ),
+                  const SizedBox(height: 28),
+                ],
+              ),
+            ),
+            // Pulsante chiudi
+            Container(
+              padding: EdgeInsets.only(
+                  left: 24, right: 24, top: 12,
+                  bottom: MediaQuery.of(context).padding.bottom + 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 12, offset: const Offset(0, -4)),
+                ],
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('Chiudi'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder(ThemeData theme) {
+    return Container(
+      height: 200, width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primaryContainer,
+            theme.colorScheme.secondaryContainer,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.image_rounded,
+            size: 56,
+            color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+        const SizedBox(height: 10),
+        Text('Immagine in arrivo',
+            style: TextStyle(
+                color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w600,
+                fontSize: 14)),
+      ]),
+    );
   }
 }
