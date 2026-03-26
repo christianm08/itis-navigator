@@ -15,7 +15,6 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  // 2 pagine: benvenuto + voce
   static const int _totalPages = 2;
 
   bool _voiceEnabled = true;
@@ -24,15 +23,53 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    // Aspetta che il TTS sia pronto, poi parla
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final tts = context.read<TtsService>();
+      // Aspetta che _init() finisca (include il controllo lingua)
       await tts.speak(
         'Benvenuto in ITIS Navigator. '
-        'Questa app ti guidera dalla Stazione di Cassino fino all ITIS Majorana '
-        'con indicazioni vocali passo dopo passo.',
+        'Questa app ti guidera dalla Stazione di Cassino '
+        'fino all ITIS Majorana con indicazioni vocali.',
       );
+      // Se it-IT non e' disponibile, mostra il dialog
+      if (mounted && !tts.italianAvailable) {
+        _showInstallItalianDialog();
+      }
     });
+  }
+
+  void _showInstallItalianDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Voce italiana mancante'),
+        content: const Text(
+          'Per sentire le indicazioni in italiano devi installare '
+          'la sintesi vocale italiana.\n\n'
+          'Vai su:\n'
+          'Impostazioni → Accessibilità → Sintesi vocale → '
+          'Motore preferito → Scarica lingue → Italiano',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Più tardi'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // Apre le impostazioni TTS di Android
+              // ignore: deprecated_member_use
+              context.read<TtsService>().openTtsSettings();
+            },
+            child: const Text('Apri Impostazioni'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -84,7 +121,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Indicatore pagine
             Padding(
               padding: const EdgeInsets.all(24),
               child: Row(
@@ -105,7 +141,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 }),
               ),
             ),
-
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -128,9 +163,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     },
                     onRateChange: (r) async {
                       setState(() => _speechRate = r);
-                      await context
-                          .read<TtsService>()
-                          .setSpeechRate(r);
+                      await context.read<TtsService>().setSpeechRate(r);
                       context
                           .read<TtsService>()
                           .speak('Questa e la velocita selezionata.');
@@ -139,8 +172,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ],
               ),
             ),
-
-            // Bottone avanti / inizia
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: Semantics(
@@ -159,9 +190,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ),
                     child: Text(
-                      _currentPage < _totalPages - 1
-                          ? 'Continua'
-                          : 'Inizia',
+                      _currentPage < _totalPages - 1 ? 'Continua' : 'Inizia',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -178,7 +207,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-// ─── Pagina 1: Benvenuto ─────────────────────────────────────────────────────
 class _PageWelcome extends StatelessWidget {
   final ThemeData theme;
   const _PageWelcome({required this.theme});
@@ -198,11 +226,8 @@ class _PageWelcome extends StatelessWidget {
               gradient: LinearGradient(colors: [cs.primary, cs.secondary]),
               borderRadius: BorderRadius.circular(36),
             ),
-            child: const Icon(
-              Icons.navigation_rounded,
-              color: Colors.white,
-              size: 64,
-            ),
+            child: const Icon(Icons.navigation_rounded,
+                color: Colors.white, size: 64),
           ),
           const SizedBox(height: 32),
           Semantics(
@@ -216,7 +241,7 @@ class _PageWelcome extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Ti guido dalla Stazione di Cassino fino all\'ITIS Majorana '
+            "Ti guido dalla Stazione di Cassino fino all'ITIS Majorana "
             'con indicazioni vocali passo dopo passo.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyLarge
@@ -237,13 +262,42 @@ class _PageWelcome extends StatelessWidget {
           _FeatureRow(
               icon: Icons.qr_code_scanner_rounded,
               text: 'QR code lungo il percorso'),
+          // Banner avviso se voce italiana non installata
+          Consumer<TtsService>(
+            builder: (_, tts, __) => tts.italianAvailable
+                ? const SizedBox.shrink()
+                : Container(
+                    margin: const EdgeInsets.only(top: 20),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded,
+                            color: Colors.orange.shade700),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Voce italiana non installata. '  
+                            'Vai in Impostazioni per attivarla.',
+                            style: TextStyle(
+                                color: Colors.orange.shade800,
+                                fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
         ],
       ),
     );
   }
 }
 
-// ─── Pagina 2: Voce ───────────────────────────────────────────────────────────
 class _PageVoice extends StatelessWidget {
   final ThemeData theme;
   final bool voiceEnabled;
@@ -276,15 +330,13 @@ class _PageVoice extends StatelessWidget {
         children: [
           Semantics(
             header: true,
-            child: Text(
-              'Guida vocale',
-              style: theme.textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.w900),
-            ),
+            child: Text('Guida vocale',
+                style: theme.textTheme.headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.w900)),
           ),
           const SizedBox(height: 8),
           Text(
-            'L\'app legge le indicazioni ad alta voce mentre cammini.',
+            "L'app legge le indicazioni ad alta voce mentre cammini.",
             style: theme.textTheme.bodyLarge
                 ?.copyWith(color: Colors.grey[600], height: 1.5),
           ),
@@ -301,14 +353,10 @@ class _PageVoice extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
-                  color: voiceEnabled
-                      ? cs.primaryContainer
-                      : Colors.grey[100],
+                  color: voiceEnabled ? cs.primaryContainer : Colors.grey[100],
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: voiceEnabled
-                        ? cs.primary
-                        : Colors.grey.shade300,
+                    color: voiceEnabled ? cs.primary : Colors.grey.shade300,
                     width: 2,
                   ),
                 ),
@@ -331,8 +379,7 @@ class _PageVoice extends StatelessWidget {
                     ),
                     ExcludeSemantics(
                       child: Switch(
-                          value: voiceEnabled,
-                          onChanged: onVoiceToggle),
+                          value: voiceEnabled, onChanged: onVoiceToggle),
                     ),
                   ],
                 ),
@@ -391,8 +438,7 @@ class _FeatureRow extends StatelessWidget {
         Icon(icon, color: cs.primary, size: 22),
         const SizedBox(width: 12),
         Text(text,
-            style:
-                const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
       ],
     );
   }

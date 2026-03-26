@@ -2,20 +2,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Servizio Text-to-Speech per le indicazioni vocali di navigazione.
-/// Fix: _init() ora completa prima che speak() venga chiamato,
-/// usando un Completer. La speech rate viene caricata da SharedPreferences.
+/// Servizio Text-to-Speech.
+/// - Attende sempre che _init() sia completo prima di speak()
+/// - Controlla se it-IT e' disponibile; se no, espone [italianAvailable] = false
+///   cosi' l'UI puo' mostrare un avviso per installare la voce italiana.
 class TtsService extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
 
   bool _enabled = true;
   bool _isSpeaking = false;
+  bool _italianAvailable = true;
 
-  // Future che si completa quando il motore TTS e' pronto
   late final Future<void> _ready;
 
   bool get enabled => _enabled;
   bool get isSpeaking => _isSpeaking;
+  /// false se il motore it-IT non e' installato sul dispositivo
+  bool get italianAvailable => _italianAvailable;
 
   String _lastSpoken = '';
 
@@ -25,17 +28,29 @@ class TtsService extends ChangeNotifier {
 
   Future<void> _init() async {
     try {
-      // Carica preferenze salvate
       final prefs = await SharedPreferences.getInstance();
       final rate = prefs.getDouble('tts_speech_rate') ?? 0.5;
       _enabled = prefs.getBool('tts_enabled') ?? true;
 
-      await _tts.setLanguage('it-IT');
+      // Controlla lingue disponibili
+      final languages = await _tts.getLanguages as List?;
+      final hasItalian = languages?.any((l) =>
+              l.toString().toLowerCase().startsWith('it')) ??
+          false;
+
+      if (hasItalian) {
+        await _tts.setLanguage('it-IT');
+        _italianAvailable = true;
+      } else {
+        // Fallback inglese cosi' almeno si sente qualcosa
+        await _tts.setLanguage('en-US');
+        _italianAvailable = false;
+        debugPrint('TTS: it-IT non disponibile, fallback en-US');
+      }
+
       await _tts.setSpeechRate(rate);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
-
-      // Necessario su Android per usare il motore di sistema
       await _tts.awaitSpeakCompletion(false);
 
       _tts.setStartHandler(() {
@@ -56,23 +71,20 @@ class TtsService extends ChangeNotifier {
         notifyListeners();
       });
 
-      debugPrint('TTS inizializzato (it-IT), rate: $rate, enabled: $_enabled');
+      notifyListeners();
+      debugPrint(
+          'TTS pronto — italiano: $_italianAvailable, rate: $rate, enabled: $_enabled');
     } catch (e) {
       debugPrint('TTS init fallito: $e');
     }
   }
 
-  /// Pronuncia il testo. Attende che il motore sia pronto prima di parlare.
   Future<void> speak(String text) async {
     if (!_enabled || text.isEmpty) return;
-
-    // Aspetta sempre che _init() sia completato
     await _ready;
 
     final cleaned = _cleanForSpeech(text);
     if (cleaned.isEmpty) return;
-
-    // Evita ripetizioni consecutive
     if (cleaned == _lastSpoken) return;
     _lastSpoken = cleaned;
 
@@ -84,7 +96,6 @@ class TtsService extends ChangeNotifier {
     }
   }
 
-  /// Aggiorna la speech rate a runtime e salva in SharedPreferences.
   Future<void> setSpeechRate(double rate) async {
     await _ready;
     await _tts.setSpeechRate(rate);
