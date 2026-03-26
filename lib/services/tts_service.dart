@@ -1,8 +1,7 @@
-import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Servizio Text-to-Speech.
 /// - Attende sempre che _init() sia completo prima di speak()
@@ -112,15 +111,15 @@ class TtsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Apre le impostazioni TTS di Android.
+  /// Apre le impostazioni TTS di Android tramite deep link.
   Future<void> openTtsSettings() async {
-    try {
-      const intent = AndroidIntent(
-        action: 'com.android.settings.TTS_SETTINGS',
-      );
-      await intent.launch();
-    } catch (e) {
-      debugPrint('Impossibile aprire impostazioni TTS: $e');
+    final uri = Uri.parse('android-app://com.android.settings/.tts.TextToSpeechSettings');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      // Fallback: apre le impostazioni generali di accessibilita'
+      final fallback = Uri.parse('android.settings.ACCESSIBILITY_SETTINGS');
+      await launchUrl(fallback).catchError((_) {});
     }
   }
 
