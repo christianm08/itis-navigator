@@ -16,9 +16,45 @@ const _kItis     = LatLng(41.468840, 13.834258);
 
 /// Lista pubblica dei punti QR — usata anche da MapNavigationScreen
 const kQrPoints = [
-  QrPoint(label: 'Punto 1', password: 'pass1', lat: 41.482421, lng: 13.825648),
-  QrPoint(label: 'Punto 2', password: 'pass2', lat: 41.475818, lng: 13.828921),
-  QrPoint(label: 'Punto 3', password: 'pass3', lat: 41.474282, lng: 13.828943),
+  QrPoint(
+    label: 'Punto 1',
+    password: 'pass1',
+    lat: 41.482421,
+    lng: 13.825648,
+    // TODO: sostituire con dati reali
+    placeName: 'Nome del luogo 1',
+    placeDescription: 'Descrizione del primo punto di interesse lungo il '
+        'percorso dalla Stazione all\'ITIS. Aggiungi qui le informazioni '
+        'storiche, curiosità o indicazioni utili.',
+    placeAddress: 'Via Example 1, Cassino (FR)',
+    placeImageAsset: '', // TODO: aggiungere immagine
+  ),
+  QrPoint(
+    label: 'Punto 2',
+    password: 'pass2',
+    lat: 41.475818,
+    lng: 13.828921,
+    // TODO: sostituire con dati reali
+    placeName: 'Nome del luogo 2',
+    placeDescription: 'Descrizione del secondo punto di interesse. '
+        'Puoi inserire informazioni sul quartiere, punti di riferimento '
+        'o qualsiasi dettaglio utile per gli studenti.',
+    placeAddress: 'Via Example 2, Cassino (FR)',
+    placeImageAsset: '', // TODO: aggiungere immagine
+  ),
+  QrPoint(
+    label: 'Punto 3',
+    password: 'pass3',
+    lat: 41.474282,
+    lng: 13.828943,
+    // TODO: sostituire con dati reali
+    placeName: 'Nome del luogo 3',
+    placeDescription: 'Descrizione del terzo punto di interesse, '
+        'l\'ultimo prima di arrivare all\'ITIS. Aggiungi qui le '
+        'informazioni che ritieni più utili.',
+    placeAddress: 'Via Example 3, Cassino (FR)',
+    placeImageAsset: '', // TODO: aggiungere immagine
+  ),
 ];
 
 /// Raggio entro cui l'utente deve trovarsi per poter scansionare (metri).
@@ -36,11 +72,23 @@ class QrPoint {
   final String password;
   final double lat;
   final double lng;
+
+  /// Informazioni sul luogo — mostrate nel bottom sheet dopo la scansione.
+  final String placeName;
+  final String placeDescription;
+  final String placeAddress;
+  /// Path asset immagine oppure URL. Vuoto = placeholder.
+  final String placeImageAsset;
+
   const QrPoint({
     required this.label,
     required this.password,
     required this.lat,
     required this.lng,
+    this.placeName = '',
+    this.placeDescription = '',
+    this.placeAddress = '',
+    this.placeImageAsset = '',
   });
   LatLng get latLng => LatLng(lat, lng);
 }
@@ -187,7 +235,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         builder: (_) => _QrCameraPage(
           point: point,
           onSuccess: () {
-            Navigator.pop(context);
+            // Chiudi bottom sheet + pagina camera
+            Navigator.pop(context); // chiude bottom sheet
+            Navigator.pop(context); // chiude pagina camera
             _onUnlock(point.label);
           },
         ),
@@ -716,22 +766,15 @@ class _QrCameraPageState extends State<_QrCameraPage>
   }
 
   void _showSuccess() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(children: [
-          const Text('✅', style: TextStyle(fontSize: 26)),
-          const SizedBox(width: 10),
-          Expanded(child: Text('${widget.point.label} sbloccato!')),
-        ]),
-        content: Text(
-            'Hai scansionato correttamente il QR del ${widget.point.label}.'),
-        actions: [
-          ElevatedButton(
-              onPressed: widget.onSuccess, child: const Text('Continua')),
-        ],
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PlaceInfoSheet(
+        point: widget.point,
+        onContinue: widget.onSuccess,
       ),
     );
   }
@@ -954,4 +997,228 @@ class _ScannerOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(_ScannerOverlayPainter old) =>
       old.borderColor != borderColor;
+}
+
+// ─────────────────────────────────────────────
+// Bottom Sheet informazioni luogo
+// ─────────────────────────────────────────────
+
+class _PlaceInfoSheet extends StatelessWidget {
+  final QrPoint point;
+  final VoidCallback onContinue;
+
+  const _PlaceInfoSheet({
+    required this.point,
+    required this.onContinue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasImage = point.placeImageAsset.isNotEmpty;
+    final name = point.placeName.isNotEmpty ? point.placeName : point.label;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.70,
+      minChildSize: 0.45,
+      maxChildSize: 0.92,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            // Maniglia drag
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 4),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Contenuto scrollabile
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                children: [
+                  // Badge "Sbloccato"
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_rounded,
+                              color: Colors.green.shade600, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${point.label} sbloccato!',
+                            style: TextStyle(
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Immagine o placeholder
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: hasImage
+                        ? Image.asset(
+                            point.placeImageAsset,
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _buildImagePlaceholder(theme),
+                          )
+                        : _buildImagePlaceholder(theme),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Nome luogo
+                  Text(
+                    name,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Indirizzo
+                  if (point.placeAddress.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_outlined,
+                            size: 18, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            point.placeAddress,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Divider
+                  Divider(color: Colors.grey.shade200, height: 1),
+                  const SizedBox(height: 16),
+
+                  // Descrizione
+                  Text(
+                    point.placeDescription.isNotEmpty
+                        ? point.placeDescription
+                        : 'Descrizione non ancora disponibile. '
+                            'Le informazioni su questo punto verranno '
+                            'aggiunte presto.',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Colors.grey.shade800,
+                      height: 1.6,
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+                ],
+              ),
+            ),
+
+            // Pulsante continua — fisso in basso
+            Container(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 12,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: onContinue,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Continua'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder(ThemeData theme) {
+    return Container(
+      height: 200,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primaryContainer,
+            theme.colorScheme.secondaryContainer,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image_rounded,
+              size: 56, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+          const SizedBox(height: 10),
+          Text(
+            'Immagine in arrivo',
+            style: TextStyle(
+              color: theme.colorScheme.primary.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
