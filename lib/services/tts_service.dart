@@ -1,23 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-/// Servizio Text-to-Speech.
-/// - Attende sempre che _init() sia completo prima di speak()
-/// - Controlla se it-IT e' disponibile; se no, espone [italianAvailable] = false
 class TtsService extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
 
   bool _enabled = true;
   bool _isSpeaking = false;
-  bool _italianAvailable = true;
 
   late final Future<void> _ready;
 
   bool get enabled => _enabled;
   bool get isSpeaking => _isSpeaking;
-  bool get italianAvailable => _italianAvailable;
 
   String _lastSpoken = '';
 
@@ -31,20 +25,7 @@ class TtsService extends ChangeNotifier {
       final rate = prefs.getDouble('tts_speech_rate') ?? 0.5;
       _enabled = prefs.getBool('tts_enabled') ?? true;
 
-      final languages = await _tts.getLanguages as List?;
-      final hasItalian =
-          languages?.any((l) => l.toString().toLowerCase().startsWith('it')) ??
-              false;
-
-      if (hasItalian) {
-        await _tts.setLanguage('it-IT');
-        _italianAvailable = true;
-      } else {
-        await _tts.setLanguage('en-US');
-        _italianAvailable = false;
-        debugPrint('TTS: it-IT non disponibile, fallback en-US');
-      }
-
+      await _tts.setLanguage('it-IT');
       await _tts.setSpeechRate(rate);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
@@ -60,7 +41,7 @@ class TtsService extends ChangeNotifier {
       });
 
       notifyListeners();
-      debugPrint('TTS pronto — italiano: $_italianAvailable, rate: $rate');
+      debugPrint('TTS pronto, rate: $rate, enabled: $_enabled');
     } catch (e) {
       debugPrint('TTS init fallito: $e');
     }
@@ -109,18 +90,6 @@ class TtsService extends ChangeNotifier {
     _enabled = value;
     if (!_enabled) stop();
     notifyListeners();
-  }
-
-  /// Apre le impostazioni TTS di Android tramite deep link.
-  Future<void> openTtsSettings() async {
-    final uri = Uri.parse('android-app://com.android.settings/.tts.TextToSpeechSettings');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      // Fallback: apre le impostazioni generali di accessibilita'
-      final fallback = Uri.parse('android.settings.ACCESSIBILITY_SETTINGS');
-      await launchUrl(fallback).catchError((_) {});
-    }
   }
 
   String _cleanForSpeech(String text) {

@@ -24,52 +24,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final tts = context.read<TtsService>();
-      // Aspetta che _init() finisca (include il controllo lingua)
-      await tts.speak(
+      await context.read<TtsService>().speak(
         'Benvenuto in ITIS Navigator. '
         'Questa app ti guidera dalla Stazione di Cassino '
         'fino all ITIS Majorana con indicazioni vocali.',
       );
-      // Se it-IT non e' disponibile, mostra il dialog
-      if (mounted && !tts.italianAvailable) {
-        _showInstallItalianDialog();
-      }
     });
-  }
-
-  void _showInstallItalianDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Voce italiana mancante'),
-        content: const Text(
-          'Per sentire le indicazioni in italiano devi installare '
-          'la sintesi vocale italiana.\n\n'
-          'Vai su:\n'
-          'Impostazioni → Accessibilità → Sintesi vocale → '
-          'Motore preferito → Scarica lingue → Italiano',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Più tardi'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              // Apre le impostazioni TTS di Android
-              // ignore: deprecated_member_use
-              context.read<TtsService>().openTtsSettings();
-            },
-            child: const Text('Apri Impostazioni'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -132,9 +92,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     width: i == _currentPage ? 28 : 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: i == _currentPage
-                          ? cs.primary
-                          : cs.outlineVariant,
+                      color: i == _currentPage ? cs.primary : cs.outlineVariant,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   );
@@ -155,18 +113,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     onVoiceToggle: (v) {
                       setState(() => _voiceEnabled = v);
                       context.read<TtsService>().setEnabled(v);
-                      if (v) {
-                        context
-                            .read<TtsService>()
-                            .speak('Guida vocale attivata.');
-                      }
+                      if (v) context.read<TtsService>().speak('Guida vocale attivata.');
                     },
                     onRateChange: (r) async {
                       setState(() => _speechRate = r);
                       await context.read<TtsService>().setSpeechRate(r);
-                      context
-                          .read<TtsService>()
-                          .speak('Questa e la velocita selezionata.');
+                      context.read<TtsService>().speak('Questa e la velocita selezionata.');
                     },
                   ),
                 ],
@@ -191,10 +143,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     child: Text(
                       _currentPage < _totalPages - 1 ? 'Continua' : 'Inizia',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -226,8 +175,7 @@ class _PageWelcome extends StatelessWidget {
               gradient: LinearGradient(colors: [cs.primary, cs.secondary]),
               borderRadius: BorderRadius.circular(36),
             ),
-            child: const Icon(Icons.navigation_rounded,
-                color: Colors.white, size: 64),
+            child: const Icon(Icons.navigation_rounded, color: Colors.white, size: 64),
           ),
           const SizedBox(height: 32),
           Semantics(
@@ -235,8 +183,7 @@ class _PageWelcome extends StatelessWidget {
             child: Text(
               'Benvenuto in\nITIS Navigator',
               textAlign: TextAlign.center,
-              style: theme.textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.w900),
+              style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
             ),
           ),
           const SizedBox(height: 16),
@@ -244,54 +191,16 @@ class _PageWelcome extends StatelessWidget {
             "Ti guido dalla Stazione di Cassino fino all'ITIS Majorana "
             'con indicazioni vocali passo dopo passo.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge
-                ?.copyWith(color: Colors.grey[600], height: 1.5),
+            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[600], height: 1.5),
           ),
           const SizedBox(height: 28),
-          _FeatureRow(
-              icon: Icons.record_voice_over_rounded,
-              text: 'Indicazioni vocali in italiano'),
+          _FeatureRow(icon: Icons.record_voice_over_rounded, text: 'Indicazioni vocali in italiano'),
           const SizedBox(height: 12),
-          _FeatureRow(
-              icon: Icons.map_rounded, text: 'Mappa GPS con percorso'),
+          _FeatureRow(icon: Icons.map_rounded, text: 'Mappa GPS con percorso'),
           const SizedBox(height: 12),
-          _FeatureRow(
-              icon: Icons.directions_transit_rounded,
-              text: 'Orari Cotral, Trenitalia e Magni'),
+          _FeatureRow(icon: Icons.directions_transit_rounded, text: 'Orari Cotral, Trenitalia e Magni'),
           const SizedBox(height: 12),
-          _FeatureRow(
-              icon: Icons.qr_code_scanner_rounded,
-              text: 'QR code lungo il percorso'),
-          // Banner avviso se voce italiana non installata
-          Consumer<TtsService>(
-            builder: (_, tts, __) => tts.italianAvailable
-                ? const SizedBox.shrink()
-                : Container(
-                    margin: const EdgeInsets.only(top: 20),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded,
-                            color: Colors.orange.shade700),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Voce italiana non installata. '  
-                            'Vai in Impostazioni per attivarla.',
-                            style: TextStyle(
-                                color: Colors.orange.shade800,
-                                fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-          ),
+          _FeatureRow(icon: Icons.qr_code_scanner_rounded, text: 'QR code lungo il percorso'),
         ],
       ),
     );
@@ -331,14 +240,12 @@ class _PageVoice extends StatelessWidget {
           Semantics(
             header: true,
             child: Text('Guida vocale',
-                style: theme.textTheme.headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.w900)),
+                style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
           ),
           const SizedBox(height: 8),
           Text(
             "L'app legge le indicazioni ad alta voce mentre cammini.",
-            style: theme.textTheme.bodyLarge
-                ?.copyWith(color: Colors.grey[600], height: 1.5),
+            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[600], height: 1.5),
           ),
           const SizedBox(height: 32),
           Semantics(
@@ -350,8 +257,7 @@ class _PageVoice extends StatelessWidget {
               onTap: () => onVoiceToggle(!voiceEnabled),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
                   color: voiceEnabled ? cs.primaryContainer : Colors.grey[100],
                   borderRadius: BorderRadius.circular(20),
@@ -363,9 +269,7 @@ class _PageVoice extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      voiceEnabled
-                          ? Icons.volume_up_rounded
-                          : Icons.volume_off_rounded,
+                      voiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                       color: voiceEnabled ? cs.primary : Colors.grey,
                       size: 32,
                     ),
@@ -373,13 +277,11 @@ class _PageVoice extends StatelessWidget {
                     Expanded(
                       child: Text(
                         voiceEnabled ? 'Voce attiva' : 'Voce disattivata',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                     ExcludeSemantics(
-                      child: Switch(
-                          value: voiceEnabled, onChanged: onVoiceToggle),
+                      child: Switch(value: voiceEnabled, onChanged: onVoiceToggle),
                     ),
                   ],
                 ),
@@ -390,13 +292,11 @@ class _PageVoice extends StatelessWidget {
             const SizedBox(height: 28),
             Text(
               'Velocita della voce: ${_rateLabel(speechRate)}',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Semantics(
-              label:
-                  'Velocita voce: ${_rateLabel(speechRate)}. Scorri per cambiare.',
+              label: 'Velocita voce: ${_rateLabel(speechRate)}. Scorri per cambiare.',
               child: Slider(
                 value: speechRate,
                 min: 0.3,
@@ -410,12 +310,8 @@ class _PageVoice extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Lenta',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: Colors.grey)),
-                Text('Veloce',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: Colors.grey)),
+                Text('Lenta', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                Text('Veloce', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
               ],
             ),
           ],
@@ -437,8 +333,7 @@ class _FeatureRow extends StatelessWidget {
       children: [
         Icon(icon, color: cs.primary, size: 22),
         const SizedBox(width: 12),
-        Text(text,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+        Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
       ],
     );
   }
