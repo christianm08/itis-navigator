@@ -4,8 +4,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/home_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'services/location_service.dart';
 import 'services/navigation_service.dart';
 import 'services/tts_service.dart';
@@ -23,11 +25,16 @@ Future<void> main() async {
     ),
   );
 
-  runApp(const ItisNavigatorApp());
+  // Controlla se l'onboarding e' gia' stato completato
+  final prefs = await SharedPreferences.getInstance();
+  final onboardingDone = prefs.getBool('onboarding_done') ?? false;
+
+  runApp(ItisNavigatorApp(onboardingDone: onboardingDone));
 }
 
 class ItisNavigatorApp extends StatelessWidget {
-  const ItisNavigatorApp({super.key});
+  final bool onboardingDone;
+  const ItisNavigatorApp({super.key, required this.onboardingDone});
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +59,7 @@ class ItisNavigatorApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: _buildTheme(),
-        home: const HomeScreen(),
+        home: onboardingDone ? const HomeScreen() : const OnboardingScreen(),
       ),
     );
   }
@@ -85,7 +92,9 @@ class ItisNavigatorApp extends StatelessWidget {
       scaffoldBackgroundColor: surfaceColor,
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
         color: Colors.white,
       ),
       appBarTheme: const AppBarTheme(

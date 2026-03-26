@@ -8,6 +8,7 @@ import '../services/weather_service.dart';
 import 'destination_picker_screen.dart' show Destination, kDestinations;
 import 'map_navigation_screen.dart';
 import 'qr_scanner_screen.dart';
+import 'settings_screen.dart';
 import 'transport_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -45,10 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final locationService = context.read<LocationService>();
     final weatherService = context.read<WeatherService>();
     try { await locationService.initialize(); } catch (e) {
-      debugPrint('⚠️ Errore GPS: $e');
+      debugPrint('Errore GPS: $e');
     }
     try { await weatherService.fetchWeather(); } catch (e) {
-      debugPrint('⚠️ Errore meteo: $e');
+      debugPrint('Errore meteo: $e');
     }
   }
 
@@ -71,6 +72,13 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => MapNavigationScreen(destination: dest),
       ),
+    );
+  }
+
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
     );
   }
 
@@ -109,9 +117,28 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_getGreeting(),
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
+                  // Riga saluto + pulsante impostazioni
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(_getGreeting(),
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                      Semantics(
+                        button: true,
+                        label: 'Apri impostazioni',
+                        child: IconButton(
+                          icon: const Icon(Icons.settings_rounded,
+                              color: Colors.white, size: 28),
+                          tooltip: 'Impostazioni',
+                          onPressed: _openSettings,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   FittedBox(
                     fit: BoxFit.scaleDown,
@@ -183,13 +210,15 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ws.isLoading
             ? const SizedBox(
                 height: 120,
-                child: Center(child: CircularProgressIndicator(color: Colors.white)))
+                child: Center(
+                    child: CircularProgressIndicator(color: Colors.white)))
             : LayoutBuilder(builder: (context, constraints) {
                 final isCompact = constraints.maxWidth < 360;
                 return Semantics(
-                  label: 'Meteo a Cassino: ${ws.description}, ${ws.temperature} gradi. '
+                  label: 'Meteo a Cassino: ${ws.description}, '
+                      '${ws.temperature} gradi. '
                       'Vento ${ws.windSpeed.toStringAsFixed(1)} km/h, '
-                      'Umidità ${ws.humidity} percento.',
+                      'Umidita ${ws.humidity} percento.',
                   child: ExcludeSemantics(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,23 +230,34 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             ConstrainedBox(
                               constraints: BoxConstraints(
-                                maxWidth: isCompact ? constraints.maxWidth : constraints.maxWidth * 0.62,
+                                maxWidth: isCompact
+                                    ? constraints.maxWidth
+                                    : constraints.maxWidth * 0.62,
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text('Meteo a Cassino',
-                                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.titleLarge?.copyWith(
-                                          color: Colors.white, fontWeight: FontWeight.bold)),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 8),
-                                  Text(ws.description, maxLines: 2, overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodyLarge?.copyWith(
-                                          color: Colors.white.withValues(alpha: 0.9))),
+                                  Text(ws.description,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyLarge
+                                          ?.copyWith(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.9))),
                                 ],
                               ),
                             ),
-                            Text(ws.icon, style: TextStyle(fontSize: isCompact ? 48 : 64)),
+                            Text(ws.icon,
+                                style: TextStyle(
+                                    fontSize: isCompact ? 48 : 64)),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -229,15 +269,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('${ws.temperature}°C',
-                                  style: theme.textTheme.displayLarge?.copyWith(
-                                      color: Colors.white, fontWeight: FontWeight.bold,
-                                      fontSize: isCompact ? 40 : 48)),
+                                  style: theme.textTheme.displayLarge
+                                      ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: isCompact ? 40 : 48)),
                             ),
                             Wrap(
                               spacing: 12, runSpacing: 12,
                               children: [
-                                _buildWeatherDetail(theme, 'Vento', '${ws.windSpeed.toStringAsFixed(1)} km/h'),
-                                _buildWeatherDetail(theme, 'Umidità', '${ws.humidity}%'),
+                                _buildWeatherDetail(theme, 'Vento',
+                                    '${ws.windSpeed.toStringAsFixed(1)} km/h'),
+                                _buildWeatherDetail(
+                                    theme, 'Umidita', '${ws.humidity}%'),
                               ],
                             ),
                           ],
@@ -262,19 +306,20 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w500)),
+          Text(label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 2),
-          Text(value, style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white, fontWeight: FontWeight.w700)),
+          Text(value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white, fontWeight: FontWeight.w700)),
         ],
       ),
     );
   }
 
-  /// Card con due bottoni affiancati: Vai a Scuola / Vai alla Stazione
   Widget _buildNavigationCard(ThemeData theme) {
-    // Prendo le destinazioni predefinite dal picker
     final scuola = kDestinations.firstWhere(
       (d) => d.name.contains('Biennio'),
       orElse: () => kDestinations.first,
@@ -319,8 +364,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Navigazione',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold)),
+                        style: theme.textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 2),
                     Text('Percorso a piedi dalla tua posizione',
                         style: theme.textTheme.bodySmall
@@ -376,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.qr_code_scanner_rounded,
         iconGradient: const [Color(0xFF059669), Color(0xFF34D399)],
         title: 'Percorso QR',
-        subtitle: 'Scansiona i 3 punti Stazione → ITIS',
+        subtitle: 'Scansiona i 3 punti Stazione — ITIS',
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const QrScannerScreen()),
@@ -440,8 +485,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildInfoRow(theme, Icons.location_on_outlined,
               'Via S. Angelo, 2 - 03043 Cassino'),
           const SizedBox(height: 12),
-          _buildInfoRow(theme, Icons.mail_outline_rounded,
-              'frtf020002@istruzione.it'),
+          _buildInfoRow(
+              theme, Icons.mail_outline_rounded, 'frtf020002@istruzione.it'),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -467,14 +512,14 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: Text(text,
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700])),
+              style:
+                  theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700])),
         ),
       ],
     );
   }
 }
 
-/// Bottone destinazione navigazione
 class _NavDestButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -505,7 +550,8 @@ class _NavDestButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+            padding:
+                const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -530,7 +576,8 @@ class _NavDestButton extends StatelessWidget {
   }
 }
 
-/// Card riusabile per la home
+/// Card riusabile per la home — ExcludeSemantics sul contenuto interno
+/// perche' il Semantics ESTERNO (nel chiamante) fornisce gia' la label.
 class _HomeCard extends StatelessWidget {
   final IconData icon;
   final List<Color> iconGradient;
@@ -556,7 +603,8 @@ class _HomeCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20, offset: const Offset(0, 10),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
