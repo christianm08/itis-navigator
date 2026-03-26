@@ -1,5 +1,10 @@
+import 'dart:convert';
 import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+
 import '../models/route_data_model.dart';
 
 /// Percorso pedonale fisso Stazione Cassino → ITIS.
@@ -119,9 +124,9 @@ class RoutingService {
   /// Se [start] è SUL percorso (≤40 m): restituisce la polilinea
   /// tagliata dal punto di snap in poi.
   ///
-  /// Se [start] è FUORI percorso (>40 m): restituisce
-  ///   [posizione attuale → punto di snap] + [resto del percorso fisso]
-  /// così la linea blu mostra sempre la strada effettiva da percorrere.
+  /// Se [start] è FUORI percorso (>40 m): chiama OSRM per ottenere un
+  /// percorso pedonale reale (su strade) dalla posizione attuale al punto
+  /// di snap, poi concatena il resto del percorso fisso BRouter.
   Future<RouteDataModel> fetchWalkingRoute({
     required LatLng start,
     required LatLng end,
@@ -134,32 +139,215 @@ class RoutingService {
     final snap = _snapToRoute(start, oriented);
 
     List<LatLng> polyline;
+    List<RouteStepModel>? connectorSteps;
+    double connectorDistanceM = 0;
+    double connectorDurationS = 0;
 
     if (snap.distanceMeters <= _kOffRouteThresholdM) {
       // --- In percorso: taglia dal punto di snap ---
       final trimmed = oriented.sublist(snap.index);
       polyline = trimmed.length >= 2 ? trimmed : oriented;
     } else {
-      // --- Fuori percorso: raccordo lineare + resto del percorso fisso ---
-      // Il raccordo è una linea retta dalla posizione attuale al punto
-      // di snap — semplice ma sempre corretto a piedi su distanze brevi.
+      // --- Fuori percorso: percorso reale via OSRM + resto del percorso fisso ---
       final snapPoint = oriented[snap.index];
       final rest = oriented.sublist(snap.index);
-      polyline = [start, snapPoint, ...rest];
+
+      // Chiama OSRM per ottenere un percorso pedonale reale (su strade)
+      // dalla posizione attuale al punto di riaggancio.
+      final connector = await _fetchOsrmWalkingRoute(start, snapPoint);
+      if (connector != null) {
+        polyline = [...connector.polylinePoints, ...rest];
+        connectorSteps = connector.steps;
+        connectorDistanceM = connector.distanceMeters;
+        connectorDurationS = connector.durationSeconds;
+      } else {
+        // Fallback: linea retta se OSRM non risponde
+        polyline = [start, snapPoint, ...rest];
+      }
     }
 
-    // 3. Calcola distanza e durata reali sui segmenti rimasti
-    final distanceM = _polylineLength(polyline);
-    // Velocità media pedonale: 1.4 m/s
-    final durationS = distanceM / 1.4;
+    // 3. Calcola distanza e durata
+    final restLength = _polylineLength(oriented.sublist(snap.index));
+    final distanceM = connectorDistanceM > 0
+        ? connectorDistanceM + restLength
+        : _polylineLength(polyline);
+    final durationS = connectorDurationS > 0
+        ? connectorDurationS + restLength / 1.4
+        : distanceM / 1.4;
+
+    // 4. Costruisce gli step: se abbiamo step OSRM dal connettore, li usa;
+    //    altrimenti step minimali.
+    final List<RouteStepModel> steps;
+    if (connectorSteps != null && connectorSteps.isNotEmpty) {
+      steps = [
+        ...connectorSteps,
+        RouteStepModel(
+          instruction: 'Continua sul percorso principale',
+          location: oriented[snap.index],
+          distance: restLength,
+          duration: restLength / 1.4,
+        ),
+        RouteStepModel(
+          instruction: 'Sei arrivato a destinazione',
+          location: polyline.last,
+          distance: 0,
+          duration: 0,
+        ),
+      ];
+    } else {
+      steps = _buildSteps(polyline, distanceM, durationS);
+    }
 
     return RouteDataModel(
       polylinePoints: polyline,
-      steps: _buildSteps(polyline, distanceM, durationS),
+      steps: steps,
       distanceMeters: distanceM,
       durationSeconds: durationS,
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // OSRM – Percorso pedonale reale via API pubblica
+  // ---------------------------------------------------------------------------
+
+  /// Chiama l'API OSRM pubblica per un percorso pedonale reale.
+  /// Restituisce null in caso di errore (timeout, rete, ecc.).
+  Future<_OsrmRouteResult?> _fetchOsrmWalkingRoute(
+      LatLng from, LatLng to) async {
+    // OSRM usa formato: lng,lat (NON lat,lng)
+    final coords =
+        '${from.longitude},${from.latitude};${to.longitude},${to.latitude}';
+    final uri = Uri.parse(
+        'https://routing.openstreetmap.de/routed-foot/route/v1/walking/$coords'
+        '?overview=full&geometries=geojson&steps=true');
+
+    try {
+      final response = await http.get(uri).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => http.Response('timeout', 408),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('⚠️ OSRM HTTP ${response.statusCode}');
+        return null;
+      }
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (json['code'] != 'Ok' || (json['routes'] as List).isEmpty) {
+        debugPrint('⚠️ OSRM nessun percorso trovato');
+        return null;
+      }
+
+      final route = (json['routes'] as List).first as Map<String, dynamic>;
+
+      // --- Polyline dal geometry GeoJSON ---
+      final geometry = route['geometry'] as Map<String, dynamic>;
+      final coordsList = geometry['coordinates'] as List;
+      final polylinePoints = coordsList.map<LatLng>((c) {
+        // GeoJSON: [lng, lat]
+        final coord = c as List;
+        return LatLng(
+            (coord[1] as num).toDouble(), (coord[0] as num).toDouble());
+      }).toList();
+
+      // --- Distanza e durata ---
+      final distanceM = (route['distance'] as num).toDouble();
+      final durationS = (route['duration'] as num).toDouble();
+
+      // --- Step turn-by-turn ---
+      final legs = route['legs'] as List;
+      final osrmSteps = <RouteStepModel>[];
+      if (legs.isNotEmpty) {
+        final stepsJson =
+            (legs.first as Map<String, dynamic>)['steps'] as List;
+        for (final s in stepsJson) {
+          final step = s as Map<String, dynamic>;
+          final maneuver = step['maneuver'] as Map<String, dynamic>;
+          final loc = maneuver['location'] as List; // [lng, lat]
+          final instruction = _osrmManeuverToItalian(
+            maneuver['type'] as String? ?? '',
+            maneuver['modifier'] as String?,
+            step['name'] as String? ?? '',
+          );
+          osrmSteps.add(RouteStepModel(
+            instruction: instruction,
+            location: LatLng(
+                (loc[1] as num).toDouble(), (loc[0] as num).toDouble()),
+            distance: (step['distance'] as num).toDouble(),
+            duration: (step['duration'] as num).toDouble(),
+          ));
+        }
+      }
+
+      debugPrint('✅ OSRM connettore: ${distanceM.round()}m, '
+          '${osrmSteps.length} step, ${polylinePoints.length} punti');
+
+      return _OsrmRouteResult(
+        polylinePoints: polylinePoints,
+        steps: osrmSteps,
+        distanceMeters: distanceM,
+        durationSeconds: durationS,
+      );
+    } catch (e) {
+      debugPrint('⚠️ OSRM errore: $e');
+      return null;
+    }
+  }
+
+  /// Traduce il tipo di manovra OSRM in istruzioni italiane.
+  String _osrmManeuverToItalian(
+      String type, String? modifier, String streetName) {
+    final street = streetName.isNotEmpty ? ' su $streetName' : '';
+
+    switch (type) {
+      case 'depart':
+        return 'Parti$street';
+      case 'arrive':
+        return 'Sei arrivato$street';
+      case 'turn':
+        switch (modifier) {
+          case 'left':
+          case 'sharp left':
+          case 'slight left':
+            return 'Gira a sinistra$street';
+          case 'right':
+          case 'sharp right':
+          case 'slight right':
+            return 'Gira a destra$street';
+          case 'uturn':
+            return 'Fai inversione$street';
+          default:
+            return 'Gira$street';
+        }
+      case 'new name':
+      case 'continue':
+        return 'Continua$street';
+      case 'merge':
+        return 'Immettiti$street';
+      case 'fork':
+        if (modifier?.contains('left') ?? false) {
+          return 'Tieni la sinistra$street';
+        }
+        return 'Tieni la destra$street';
+      case 'roundabout':
+      case 'rotary':
+        return 'Entra nella rotonda$street';
+      case 'exit roundabout':
+      case 'exit rotary':
+        return 'Esci dalla rotonda$street';
+      case 'end of road':
+        if (modifier?.contains('left') ?? false) {
+          return 'A fine strada, gira a sinistra$street';
+        }
+        return 'A fine strada, gira a destra$street';
+      default:
+        return 'Prosegui$street';
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Utilità geometriche
+  // ---------------------------------------------------------------------------
 
   /// Orienta la polilinea in modo che la fine sia la destinazione.
   List<LatLng> _orientToward(LatLng destination) {
@@ -225,6 +413,24 @@ class RoutingService {
       ),
     ];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Classi di supporto private
+// ---------------------------------------------------------------------------
+
+class _OsrmRouteResult {
+  final List<LatLng> polylinePoints;
+  final List<RouteStepModel> steps;
+  final double distanceMeters;
+  final double durationSeconds;
+
+  const _OsrmRouteResult({
+    required this.polylinePoints,
+    required this.steps,
+    required this.distanceMeters,
+    required this.durationSeconds,
+  });
 }
 
 class _SnapResult {
