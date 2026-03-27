@@ -14,8 +14,6 @@ class TtsService extends ChangeNotifier {
   bool get enabled => _enabled;
   bool get isSpeaking => _isSpeaking;
 
-  String _lastSpoken = '';
-
   TtsService() {
     _ready = _init();
   }
@@ -30,28 +28,13 @@ class TtsService extends ChangeNotifier {
       await _tts.setSpeechRate(rate);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
-      // Usa awaitSpeakCompletion(true) così ogni speak() attende
-      // che il precedente finisca davvero prima di partire
       await _tts.awaitSpeakCompletion(true);
 
-      // Android: forza il canale STREAM_MUSIC (canale media/volume media)
-      // così risponde al tasto volume-media e non al volume-notifiche
       if (Platform.isAndroid) {
         await _tts.setEngine(await _tts.getDefaultEngine as String);
         await _tts.setSharedInstance(true);
-        // 3 = AudioManager.STREAM_MUSIC
-        await _tts.setIosAudioCategory(
-          IosTextToSpeechAudioCategory.ambient,
-          [
-            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
-            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
-          ],
-          IosTextToSpeechAudioMode.voicePrompt,
-        );
       }
 
-      // iOS: usa voicePrompt così si sente anche in modalità silenzioso
       if (Platform.isIOS) {
         await _tts.setSharedInstance(true);
         await _tts.setIosAudioCategory(
@@ -95,10 +78,6 @@ class TtsService extends ChangeNotifier {
     await _ready;
     final cleaned = _cleanForSpeech(text);
     if (cleaned.isEmpty) return;
-    // Rimuove il blocco dedup aggressivo: lo stesso testo può essere
-    // ripetuto (es. stesso step dopo riposizionamento utente).
-    // Salva comunque _lastSpoken per debug.
-    _lastSpoken = cleaned;
     try {
       await _tts.stop();
       await _tts.speak(cleaned);
@@ -118,10 +97,9 @@ class TtsService extends ChangeNotifier {
     try {
       await _tts.stop();
       _isSpeaking = false;
-      _lastSpoken = '';
       notifyListeners();
     } catch (e) {
-      debugPrint('TTS stop errore: $e');\
+      debugPrint('TTS stop errore: $e');
     }
   }
 
@@ -140,8 +118,7 @@ class TtsService extends ChangeNotifier {
 
   String _cleanForSpeech(String text) {
     return text
-        .replaceAll(RegExp(r'[\u{1F000}-\u{1FFFF}]', unicode: true), '')
-        .replaceAll(RegExp(r'[\u{2600}-\u{27BF}]'), '')
+        .replaceAll(RegExp(r'\p{So}|\p{Cs}', unicode: true), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
