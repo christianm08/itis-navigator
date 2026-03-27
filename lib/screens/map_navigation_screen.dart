@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:geolocator/geolocator.dart';
@@ -6,9 +7,34 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/location_service.dart';
 import '../services/navigation_service.dart';
+import '../services/theme_provider.dart';
 import '../services/tts_service.dart';
 import 'destination_picker_screen.dart';
 import 'qr_scanner_screen.dart' show QrCameraPage, QrPoint, kQrPoints;
+
+// Google Maps dark style JSON
+const String _darkMapStyle = r'['
+  r'{"elementType":"geometry","stylers":[{"color":"#212121"}]},'
+  r'{"elementType":"labels.icon","stylers":[{"visibility":"off"}]},'
+  r'{"elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},'
+  r'{"elementType":"labels.text.stroke","stylers":[{"color":"#212121"}]},'
+  r'{"featureType":"administrative","elementType":"geometry","stylers":[{"color":"#757575"}]},'
+  r'{"featureType":"administrative.country","elementType":"labels.text.fill","stylers":[{"color":"#9e9e9e"}]},'
+  r'{"featureType":"administrative.locality","elementType":"labels.text.fill","stylers":[{"color":"#bdbdbd"}]},'
+  r'{"featureType":"poi","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},'
+  r'{"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#181818"}]},'
+  r'{"featureType":"poi.park","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},'
+  r'{"featureType":"poi.park","elementType":"labels.text.stroke","stylers":[{"color":"#1b1b1b"}]},'
+  r'{"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#2c2c2c"}]},'
+  r'{"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},'
+  r'{"featureType":"road.arterial","elementType":"geometry","stylers":[{"color":"#373737"}]},'
+  r'{"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3c3c3c"}]},'
+  r'{"featureType":"road.highway.controlled_access","elementType":"geometry","stylers":[{"color":"#4e4e4e"}]},'
+  r'{"featureType":"road.local","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},'
+  r'{"featureType":"transit","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},'
+  r'{"featureType":"water","elementType":"geometry","stylers":[{"color":"#000000"}]},'
+  r'{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}'
+  r']';
 
 class MapNavigationScreen extends StatefulWidget {
   final Destination destination;
@@ -30,7 +56,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   final Set<Polyline> _polylines = {};
   final Set<Circle> _circles = {};
 
-  // Posizioni schermo dei punti QR (aggiornate ad ogni rebuild)
   final Map<String, Offset> _qrScreenPositions = {};
 
   int _lastRoutePointsHash = 0;
@@ -193,7 +218,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       infoWindow: InfoWindow(title: widget.destination.name),
     ));
 
-    // Marker QR: viola se sbloccato, giallo se no
     for (final qp in kQrPoints) {
       final unlocked = _unlockedQr.contains(qp.label);
       _markers.add(Marker(
@@ -233,11 +257,9 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       strokeWidth: 1,
     ));
     if (mounted) setState(() {});
-    // Aggiorna posizioni schermo degli overlay dopo il frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateQrScreenPositions());
   }
 
-  /// Converte lat/lng dei punti QR sbloccati in coordinate schermo per gli overlay.
   Future<void> _updateQrScreenPositions() async {
     final ctrl = _mapController;
     if (ctrl == null || !mounted) return;
@@ -254,7 +276,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       ..addAll(updated));
   }
 
-  /// Mostra il bottom sheet con le informazioni del luogo (riutilizza _PlaceInfoSheet da qr_scanner_screen).
   void _showPlaceSheet(QrPoint point) {
     showModalBottomSheet(
       context: context,
@@ -280,17 +301,31 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
         ),
       ),
     );
-    // Aggiorna anche al ritorno dalla camera (nel caso)
     _rebuildMapData();
+  }
+
+  /// Applica lo stile dark alla mappa se il tema è scuro.
+  void _applyMapStyle(GoogleMapController controller) {
+    final isDark = context.read<ThemeProvider>().isDark;
+    if (isDark) {
+      controller.setMapStyle(_darkMapStyle);
+    } else {
+      controller.setMapStyle(null);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = context.watch<ThemeProvider>().isDark;
     final position = context.watch<LocationService>().currentPosition;
     final cameraTarget = position != null
         ? LatLng(position.latitude, position.longitude)
         : _cassinoCenter;
+
+    // Aggiorna stile mappa se il tema cambia a runtime
+    if (_mapController != null) _applyMapStyle(_mapController!);
 
     return Scaffold(
       body: Stack(
@@ -309,6 +344,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
             rotateGesturesEnabled: true,
             onMapCreated: (c) {
               _mapController = c;
+              _applyMapStyle(c);
               c.animateCamera(CameraUpdate.newLatLngZoom(cameraTarget, 15));
             },
             onCameraMoveStarted: () {
@@ -318,13 +354,12 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
             onCameraMove: (_) => _updateQrScreenPositions(),
           ),
 
-          // ── Overlay icone ✅ sui punti QR sbloccati ──────────────────────
+          // Overlay icone QR sbloccati
           for (final qp in kQrPoints)
             if (_unlockedQr.contains(qp.label) &&
                 _qrScreenPositions.containsKey(qp.label))
               Positioned(
                 left: _qrScreenPositions[qp.label]!.dx - 18,
-                // -52 per stare sopra al marker (alto ~44px)
                 top: _qrScreenPositions[qp.label]!.dy - 52,
                 child: GestureDetector(
                   onTap: () => _showPlaceSheet(qp),
@@ -412,7 +447,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: cs.surface,
                             borderRadius: BorderRadius.circular(22),
                             boxShadow: [
                               BoxShadow(
@@ -468,7 +503,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                                                 fontWeight: FontWeight.bold,
                                                 color: nav.error != null
                                                     ? Colors.red
-                                                    : const Color(0xFF1F2937),
+                                                    : cs.onSurface,
                                               ),
                                             ),
                                             const SizedBox(height: 8),
@@ -479,7 +514,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                                               style: theme.textTheme.bodyMedium?.copyWith(
                                                 color: nav.error != null
                                                     ? Colors.red.shade300
-                                                    : Colors.grey[700],
+                                                    : cs.onSurface.withValues(alpha: 0.6),
                                               ),
                                             ),
                                           ],
@@ -564,7 +599,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                   Container(
                     width: 48, height: 1,
                     decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.3),
+                        color: cs.onSurface.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(1)),
                   ),
                   const SizedBox(height: 20),
@@ -597,7 +632,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                         child: Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: cs.surface,
                             borderRadius: BorderRadius.circular(28),
                             boxShadow: [
                               BoxShadow(
@@ -614,8 +649,8 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(colors: [
-                                      theme.colorScheme.primary,
-                                      theme.colorScheme.secondary,
+                                      cs.primary,
+                                      cs.secondary,
                                     ]),
                                     borderRadius: BorderRadius.circular(18),
                                   ),
@@ -639,7 +674,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                                             ? 'Calcolo in corso...'
                                             : 'Manovra ${nav.currentStepIndex + 1}/${nav.steps.length}',
                                         style: theme.textTheme.bodyMedium
-                                            ?.copyWith(color: Colors.grey[700]),
+                                            ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6)),
                                       ),
                                     ],
                                   ),
@@ -651,9 +686,8 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                                 child: LinearProgressIndicator(
                                   minHeight: 10,
                                   value: nav.progress,
-                                  backgroundColor: const Color(0xFFE5E7EB),
-                                  valueColor: AlwaysStoppedAnimation(
-                                      theme.colorScheme.primary),
+                                  backgroundColor: cs.onSurface.withValues(alpha: 0.1),
+                                  valueColor: AlwaysStoppedAnimation(cs.primary),
                                 ),
                               ),
                               const SizedBox(height: 14),
@@ -686,9 +720,10 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     required VoidCallback onTap,
     bool active = false,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: active ? Theme.of(context).colorScheme.primary : Colors.white,
+        color: active ? cs.primary : cs.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -704,9 +739,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Icon(icon,
-                color: active
-                    ? Colors.white
-                    : Theme.of(context).colorScheme.primary),
+                color: active ? Colors.white : cs.primary),
           ),
         ),
       ),
@@ -743,19 +776,21 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   }
 
   Widget _buildStatChip(ThemeData theme, IconData icon, String label) {
+    final cs = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+        color: cs.primaryContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: theme.colorScheme.primary),
+          Icon(icon, size: 18, color: cs.primary),
           const SizedBox(width: 8),
           Text(label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface)),
         ],
       ),
     );
@@ -771,8 +806,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   }
 }
 
-// ─── Wrapper bottom sheet info luogo (riusa _PlaceInfoSheet via export) ───────
-// Mostra le info del punto QR sbloccato senza necessità di ri-scansionare.
+// ─── Bottom sheet info luogo QR ───────────────────────────────────────────────
 
 class _QrInfoSheetWrapper extends StatelessWidget {
   final QrPoint point;
@@ -781,6 +815,7 @@ class _QrInfoSheetWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final hasImage = point.placeImageAsset.isNotEmpty;
     final name = point.placeName.isNotEmpty ? point.placeName : point.label;
 
@@ -789,9 +824,9 @@ class _QrInfoSheetWrapper extends StatelessWidget {
       minChildSize: 0.45,
       maxChildSize: 0.92,
       builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
           children: [
@@ -800,7 +835,7 @@ class _QrInfoSheetWrapper extends StatelessWidget {
               child: Container(
                 width: 40, height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: cs.onSurface.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(2)),
               ),
             ),
@@ -809,25 +844,24 @@ class _QrInfoSheetWrapper extends StatelessWidget {
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 children: [
-                  // Badge sbloccato
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
+                        color: Colors.green.shade900.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green.shade300),
+                        border: Border.all(color: Colors.green.shade600),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.check_circle_rounded,
-                              color: Colors.green.shade600, size: 18),
+                              color: Colors.green.shade400, size: 18),
                           const SizedBox(width: 6),
                           Text('${point.label} sbloccato!',
                               style: TextStyle(
-                                  color: Colors.green.shade700,
+                                  color: Colors.green.shade300,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13)),
                         ],
@@ -835,7 +869,6 @@ class _QrInfoSheetWrapper extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  // Immagine o placeholder
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: hasImage
@@ -852,36 +885,35 @@ class _QrInfoSheetWrapper extends StatelessWidget {
                   if (point.placeAddress.isNotEmpty) ...[
                     Row(children: [
                       Icon(Icons.location_on_outlined,
-                          size: 18, color: Colors.grey.shade600),
+                          size: 18, color: cs.onSurface.withValues(alpha: 0.5)),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(point.placeAddress,
                             style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: Colors.grey.shade600)),
+                                ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6))),
                       ),
                     ]),
                     const SizedBox(height: 16),
                   ],
-                  Divider(color: Colors.grey.shade200, height: 1),
+                  Divider(color: cs.onSurface.withValues(alpha: 0.1), height: 1),
                   const SizedBox(height: 16),
                   Text(
                     point.placeDescription.isNotEmpty
                         ? point.placeDescription
                         : 'Descrizione non ancora disponibile.',
                     style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: Colors.grey.shade800, height: 1.6),
+                        ?.copyWith(color: cs.onSurface.withValues(alpha: 0.8), height: 1.6),
                   ),
                   const SizedBox(height: 28),
                 ],
               ),
             ),
-            // Pulsante chiudi
             Container(
               padding: EdgeInsets.only(
                   left: 24, right: 24, top: 12,
                   bottom: MediaQuery.of(context).padding.bottom + 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cs.surface,
                 boxShadow: [
                   BoxShadow(
                       color: Colors.black.withValues(alpha: 0.06),

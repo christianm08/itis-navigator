@@ -117,7 +117,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Riga saluto + pulsante impostazioni
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -320,6 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildNavigationCard(ThemeData theme) {
+    final cs = theme.colorScheme;
     final scuola = kDestinations.firstWhere(
       (d) => d.name.contains('Biennio'),
       orElse: () => kDestinations.first,
@@ -332,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
@@ -350,8 +350,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.secondary,
+                    cs.primary,
+                    cs.secondary,
                   ]),
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -369,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 2),
                     Text('Percorso a piedi dalla tua posizione',
                         style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.grey[600])),
+                            ?.copyWith(color: cs.onSurface.withValues(alpha: 0.5))),
                   ],
                 ),
               ),
@@ -385,10 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _NavDestButton(
                     icon: Icons.school_rounded,
                     label: 'Vai a Scuola',
-                    gradient: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.secondary,
-                    ],
+                    gradient: [cs.primary, cs.secondary],
                     onTap: () => _navigateTo(scuola),
                   ),
                 ),
@@ -448,10 +445,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSchoolInfoCard(ThemeData theme) {
+    final cs = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
@@ -468,10 +466,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
+                  color: cs.primaryContainer,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.school_rounded, size: 28),
+                child: Icon(Icons.school_rounded, size: 28, color: cs.onPrimaryContainer),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -512,8 +510,8 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: Text(text,
-              style:
-                  theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700])),
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
         ),
       ],
     );
@@ -576,8 +574,6 @@ class _NavDestButton extends StatelessWidget {
   }
 }
 
-/// Card riusabile per la home — ExcludeSemantics sul contenuto interno
-/// perche' il Semantics ESTERNO (nel chiamante) fornisce gia' la label.
 class _HomeCard extends StatelessWidget {
   final IconData icon;
   final List<Color> iconGradient;
@@ -596,9 +592,10 @@ class _HomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
@@ -637,12 +634,12 @@ class _HomeCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(subtitle,
                             style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: Colors.grey[600])),
+                                ?.copyWith(color: cs.onSurface.withValues(alpha: 0.5))),
                       ],
                     ),
                   ),
                   Icon(Icons.chevron_right_rounded,
-                      color: theme.colorScheme.primary, size: 28),
+                      color: cs.primary, size: 28),
                 ],
               ),
             ),
