@@ -23,6 +23,9 @@ class NavigationService extends ChangeNotifier {
   String _destinationName = '';
   DateTime? _lastRerouteAt;
 
+  /// Indice snap sulla polilinea — usato per la finestra locale off-route.
+  int _polylineSnapIndex = 0;
+
   /// Riferimento al servizio TTS per gli annunci vocali.
   TtsService? _ttsService;
 
@@ -84,12 +87,12 @@ class NavigationService extends ChangeNotifier {
     _isNavigating = true;
     _currentStepIndex = 0;
     _nextWpIndex = 0;
+    _polylineSnapIndex = 0;
     _error = null;
     _lastProcessedPosition = null;
     _startedFromFallback = fromFallback;
     await _buildRoute(start);
 
-    // Annuncio vocale di avvio
     final name = _destinationName.isNotEmpty ? _destinationName : 'destinazione';
     _announce('Navigazione avviata verso $name. '
         'Distanza: ${getFormattedDistance()}. '
@@ -122,6 +125,7 @@ class NavigationService extends ChangeNotifier {
       );
       _activeRoute = route;
       _currentStepIndex = 0;
+      _polylineSnapIndex = 0;
       _remainingDistance = route.distanceMeters;
       _estimatedTimeRemaining =
           Duration(seconds: route.durationSeconds.round());
@@ -130,12 +134,14 @@ class NavigationService extends ChangeNotifier {
           : 'Procedi verso la destinazione';
       _isOffRoute = false;
       _lastRerouteAt = DateTime.now();
-      debugPrint('✅ Percorso: ${route.distanceMeters.round()}m, '
-          '${route.steps.length} passi');
+      if (kDebugMode) {
+        debugPrint('✅ Percorso: ${route.distanceMeters.round()}m, '
+            '${route.steps.length} passi');
+      }
     } catch (e) {
       final raw = e.toString().replaceAll('Exception: ', '');
       final msg = raw.length > 140 ? '${raw.substring(0, 140)}...' : raw;
-      debugPrint('❌ Errore routing: $msg');
+      if (kDebugMode) debugPrint('❌ Errore routing: $msg');
       _error = msg;
       _currentInstruction = 'Impossibile calcolare il percorso';
       _activeRoute = null;
@@ -158,10 +164,11 @@ class NavigationService extends ChangeNotifier {
     }
     _lastProcessedPosition = position;
 
-    // Se eravamo partiti dal fallback, ricalcola subito con la posizione reale
     if (_startedFromFallback) {
       _startedFromFallback = false;
-      debugPrint('📍 GPS reale ricevuto — ricalcolo percorso da posizione attuale');
+      if (kDebugMode) {
+        debugPrint('📍 GPS reale ricevuto — ricalcolo percorso da posizione attuale');
+      }
       await _buildRoute(position);
       return;
     }
@@ -183,43 +190,48 @@ class NavigationService extends ChangeNotifier {
       _estimatedTimeRemaining = Duration.zero;
       final name = _destinationName.isNotEmpty ? _destinationName : 'destinazione';
       _currentInstruction = '🎉 Sei arrivato a $name!';
-
-      // Annuncio vocale arrivo
       _announce('Sei arrivato a $name.');
-
       notifyListeners();
       return;
     }
 
+    // Salva stato precedente per notifyListeners condizionale
     final prevStepIndex = _currentStepIndex;
+    final prevInstruction = _currentInstruction;
+    final prevOffRoute = _isOffRoute;
 
     _advanceWaypoints(position);
-    _syncCurrentStep(position);
-    _remainingDistance = _calculateRemainingDistance(position);
+
+    // Loop fuso: step sync + distanza rimanente in una sola passata
+    _updateStepAndDistance(position);
+
     _estimatedTimeRemaining =
         Duration(seconds: (_remainingDistance / 1.4).round());
     _currentInstruction =
         currentStep?.instruction ?? 'Continua sul percorso';
 
-    // Annuncio vocale cambio step
     if (_currentStepIndex != prevStepIndex && currentStep != null) {
       _announce(currentStep!.instruction);
     }
 
-    final offDist = _distanceFromPositionToPolyline(position);
+    // Off-route: finestra locale ±20 punti attorno allo snap index
+    final offDist = _distanceFromPositionToPolylineWindowed(position);
     _isOffRoute = offDist > offRouteThreshold;
 
     final canReroute = _lastRerouteAt == null ||
         DateTime.now().difference(_lastRerouteAt!).inSeconds >= 3;
     if (_isOffRoute && canReroute) {
-      // Annuncio vocale off-route
       _announce('Sei fuori percorso. Ricalcolo in corso.');
-
       await _buildRoute(position);
       if (_activeRoute != null) _currentInstruction = '⚠️ Percorso ricalcolato';
     }
 
-    notifyListeners();
+    // notifyListeners solo se lo stato visibile è cambiato
+    if (_currentStepIndex != prevStepIndex ||
+        _currentInstruction != prevInstruction ||
+        _isOffRoute != prevOffRoute) {
+      notifyListeners();
+    }
   }
 
   void _advanceWaypoints(Position position) {
@@ -235,10 +247,17 @@ class NavigationService extends ChangeNotifier {
     }
   }
 
-  void _syncCurrentStep(Position position) {
-    if (steps.isEmpty) return;
+  /// Fonde _syncCurrentStep e _calculateRemainingDistance in un singolo loop,
+  /// eliminando la doppia scansione degli step ad ogni update GPS.
+  void _updateStepAndDistance(Position position) {
+    if (steps.isEmpty) {
+      _remainingDistance = 0;
+      return;
+    }
+
     int bestIndex = _currentStepIndex;
     double bestDist = double.infinity;
+
     for (int i = _currentStepIndex; i < steps.length; i++) {
       final d = Geolocator.distanceBetween(
         position.latitude, position.longitude,
@@ -249,36 +268,43 @@ class NavigationService extends ChangeNotifier {
         bestIndex = i;
       }
     }
+
     if (bestDist < stepProximityThreshold || bestIndex > _currentStepIndex) {
       _currentStepIndex = bestIndex;
     }
-  }
 
-  double _calculateRemainingDistance(Position position) {
-    double remaining = 0.0;
-    final step = currentStep;
-    if (step != null) {
-      remaining += Geolocator.distanceBetween(
-        position.latitude, position.longitude,
-        step.location.latitude, step.location.longitude,
-      );
-    }
+    // Calcola distanza rimanente: distanza al prossimo step + somma step successivi
+    double remaining = bestDist;
     for (int i = _currentStepIndex; i < steps.length; i++) {
       remaining += steps[i].distance;
     }
-    return remaining;
+    _remainingDistance = remaining;
   }
 
-  double _distanceFromPositionToPolyline(Position position) {
-    if (routePoints.isEmpty) return 0.0;
+  /// Controlla l'off-route su una finestra locale di ±20 punti attorno
+  /// all'ultimo snap index noto, invece di scansionare l'intera polilinea.
+  double _distanceFromPositionToPolylineWindowed(Position position) {
+    final pts = routePoints;
+    if (pts.isEmpty) return 0.0;
+
+    // Aggiorna snap index nella finestra corrente
+    final winStart = (_polylineSnapIndex - 20).clamp(0, pts.length - 1);
+    final winEnd = (_polylineSnapIndex + 20).clamp(0, pts.length - 1);
+
     double minDist = double.infinity;
-    for (final point in routePoints) {
+    int minIndex = _polylineSnapIndex;
+
+    for (int i = winStart; i <= winEnd; i++) {
       final d = Geolocator.distanceBetween(
         position.latitude, position.longitude,
-        point.latitude, point.longitude,
+        pts[i].latitude, pts[i].longitude,
       );
-      if (d < minDist) minDist = d;
+      if (d < minDist) {
+        minDist = d;
+        minIndex = i;
+      }
     }
+    _polylineSnapIndex = minIndex;
     return minDist;
   }
 
