@@ -25,6 +25,24 @@ class TtsService extends ChangeNotifier {
       _enabled = prefs.getBool('tts_enabled') ?? true;
 
       await _tts.setLanguage('it-IT');
+      
+      // Imposta voce italiana maschile
+      final voices = await _tts.getVoices;
+      if (voices is List) {
+        final italianMaleVoice = voices.firstWhere(
+          (voice) {
+            final voiceMap = voice is Map ? voice : {};
+            return voiceMap['locale'] == 'it-IT' && 
+                   (voiceMap['gender'] == 'male' || 
+                    voiceMap['name']?.toString().toLowerCase().contains('male') == true);
+          },
+          orElse: () => null,
+        );
+        if (italianMaleVoice != null) {
+          await _tts.setVoice(italianMaleVoice);
+        }
+      }
+      
       await _tts.setSpeechRate(rate);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
