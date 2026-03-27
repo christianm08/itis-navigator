@@ -316,28 +316,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     colors: [cs.primary, cs.secondary],
                   ),
                 ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 56),
-                    child: Row(children: [
-                      const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 32),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('Stazione → ITIS',
-                                style: theme.textTheme.titleSmall
-                                    ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-                            Text('Premi "Scan" su ogni punto per scansionare il QR',
-                                style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70)),
-                          ],
-                        ),
-                      ),
-                    ]),
-                  ),
-                ),
+
               ),
             ),
           ),
