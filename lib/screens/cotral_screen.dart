@@ -17,133 +17,27 @@ class _Bus {
   });
 }
 
-// Orari indicativi COTRAL linee area Cassino
-// Fonte: tabelle orarie COTRAL SpA
 const _kBuses = [
-  // Cassino → Frosinone
-  _Bus(
-      time: '06:00',
-      line: 'Cassino–Frosinone',
-      from: 'Cassino',
-      to: 'Frosinone',
-      notes: 'Feriale'),
-  _Bus(
-      time: '07:00',
-      line: 'Cassino–Frosinone',
-      from: 'Cassino',
-      to: 'Frosinone',
-      notes: 'Feriale'),
-  _Bus(
-      time: '08:15',
-      line: 'Cassino–Frosinone',
-      from: 'Cassino',
-      to: 'Frosinone',
-      notes: 'Feriale'),
-  _Bus(
-      time: '13:00',
-      line: 'Cassino–Frosinone',
-      from: 'Cassino',
-      to: 'Frosinone',
-      notes: 'Feriale'),
-  _Bus(
-      time: '14:00',
-      line: 'Cassino–Frosinone',
-      from: 'Cassino',
-      to: 'Frosinone',
-      notes: 'Feriale'),
-  _Bus(
-      time: '16:00',
-      line: 'Cassino–Frosinone',
-      from: 'Cassino',
-      to: 'Frosinone',
-      notes: 'Feriale'),
-  _Bus(
-      time: '18:00',
-      line: 'Cassino–Frosinone',
-      from: 'Cassino',
-      to: 'Frosinone',
-      notes: 'Feriale'),
-  // Frosinone → Cassino
-  _Bus(
-      time: '06:30',
-      line: 'Frosinone–Cassino',
-      from: 'Frosinone',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  _Bus(
-      time: '07:30',
-      line: 'Frosinone–Cassino',
-      from: 'Frosinone',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  _Bus(
-      time: '09:00',
-      line: 'Frosinone–Cassino',
-      from: 'Frosinone',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  _Bus(
-      time: '13:30',
-      line: 'Frosinone–Cassino',
-      from: 'Frosinone',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  _Bus(
-      time: '15:00',
-      line: 'Frosinone–Cassino',
-      from: 'Frosinone',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  _Bus(
-      time: '17:00',
-      line: 'Frosinone–Cassino',
-      from: 'Frosinone',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  _Bus(
-      time: '19:00',
-      line: 'Frosinone–Cassino',
-      from: 'Frosinone',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  // Cassino → Sora
-  _Bus(
-      time: '06:45',
-      line: 'Cassino–Sora',
-      from: 'Cassino',
-      to: 'Sora',
-      notes: 'Feriale'),
-  _Bus(
-      time: '12:45',
-      line: 'Cassino–Sora',
-      from: 'Cassino',
-      to: 'Sora',
-      notes: 'Feriale'),
-  _Bus(
-      time: '17:45',
-      line: 'Cassino–Sora',
-      from: 'Cassino',
-      to: 'Sora',
-      notes: 'Feriale'),
-  // Sora → Cassino
-  _Bus(
-      time: '07:30',
-      line: 'Sora–Cassino',
-      from: 'Sora',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  _Bus(
-      time: '13:30',
-      line: 'Sora–Cassino',
-      from: 'Sora',
-      to: 'Cassino',
-      notes: 'Feriale'),
-  _Bus(
-      time: '18:30',
-      line: 'Sora–Cassino',
-      from: 'Sora',
-      to: 'Cassino',
-      notes: 'Feriale'),
+  _Bus(time: '06:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
+  _Bus(time: '07:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
+  _Bus(time: '08:15', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
+  _Bus(time: '13:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
+  _Bus(time: '14:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
+  _Bus(time: '16:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
+  _Bus(time: '18:00', line: 'Cassino–Frosinone', from: 'Cassino', to: 'Frosinone', notes: 'Feriale'),
+  _Bus(time: '06:30', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '07:30', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '09:00', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '13:30', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '15:00', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '17:00', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '19:00', line: 'Frosinone–Cassino', from: 'Frosinone', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '06:45', line: 'Cassino–Sora', from: 'Cassino', to: 'Sora', notes: 'Feriale'),
+  _Bus(time: '12:45', line: 'Cassino–Sora', from: 'Cassino', to: 'Sora', notes: 'Feriale'),
+  _Bus(time: '17:45', line: 'Cassino–Sora', from: 'Cassino', to: 'Sora', notes: 'Feriale'),
+  _Bus(time: '07:30', line: 'Sora–Cassino', from: 'Sora', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '13:30', line: 'Sora–Cassino', from: 'Sora', to: 'Cassino', notes: 'Feriale'),
+  _Bus(time: '18:30', line: 'Sora–Cassino', from: 'Sora', to: 'Cassino', notes: 'Feriale'),
 ];
 
 class CotrAlScreen extends StatefulWidget {
@@ -215,9 +109,7 @@ class _CotrAlScreenState extends State<CotrAlScreen>
           Container(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top + 16,
-              left: 20,
-              right: 20,
-              bottom: 0,
+              left: 20, right: 20, bottom: 0,
             ),
             color: brandColor,
             child: Column(
@@ -231,14 +123,12 @@ class _CotrAlScreenState extends State<CotrAlScreen>
                       child: GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          width: 44,
-                          height: 44,
+                          width: 44, height: 44,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(Icons.arrow_back_rounded,
-                              color: Colors.white),
+                          child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
                         ),
                       ),
                     ),
@@ -247,9 +137,7 @@ class _CotrAlScreenState extends State<CotrAlScreen>
                       header: true,
                       child: Text('COTRAL',
                           style: theme.textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          )),
+                            color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -317,30 +205,77 @@ class _BottomSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
-            // TODO: Implement URL launch
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: brandColor,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: EdgeInsets.only(
+        left: 16, right: 16, top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 12,
+      ),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12, offset: const Offset(0, -4),
           ),
-          child: Semantics(
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.amber.shade900.withValues(alpha: 0.25)
+                  : Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: isDark ? Colors.amber.shade700 : Colors.amber.shade300),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 18,
+                    color: isDark ? Colors.amber.shade400 : Colors.amber.shade800),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Gli orari sono indicativi e soggetti a variazioni. '
+                    'Verifica sempre sul sito ufficiale.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.amber.shade300 : Colors.amber.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Semantics(
             button: true,
             label: buttonSemanticLabel,
-            child: Text(
-              buttonLabel,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: brandColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () {},
+                icon: const Icon(Icons.open_in_new_rounded),
+                label: Text(buttonLabel,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -350,14 +285,19 @@ class _BusList extends StatelessWidget {
   final List<_Bus> buses;
   final String? nextTime;
   final Color brandColor;
-  const _BusList(
-      {required this.buses, this.nextTime, required this.brandColor});
+  const _BusList({required this.buses, this.nextTime, required this.brandColor});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     if (buses.isEmpty) {
-      return const Center(child: Text('Nessuna corsa disponibile'));
+      return Center(
+        child: Text('Nessuna corsa disponibile',
+            style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -374,27 +314,24 @@ class _BusList extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color:
-                    isNext ? brandColor.withValues(alpha: 0.08) : Colors.white,
+                color: isNext
+                    ? brandColor.withValues(alpha: isDark ? 0.18 : 0.08)
+                    : cs.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isNext ? brandColor : Colors.grey.shade200,
+                  color: isNext
+                      ? brandColor
+                      : cs.onSurface.withValues(alpha: isDark ? 0.14 : 0.12),
                   width: isNext ? 2 : 1,
                 ),
               ),
               child: Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(b.time,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color:
-                                isNext ? brandColor : const Color(0xFF1F2937),
-                          )),
-                    ],
-                  ),
+                  Text(b.time,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isNext ? brandColor : cs.onSurface,
+                      )),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
@@ -405,15 +342,14 @@ class _BusList extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w600)),
                         if (b.notes.isNotEmpty)
                           Text(b.notes,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: Colors.grey[500])),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurface.withValues(alpha: 0.45))),
                       ],
                     ),
                   ),
                   if (isNext)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: brandColor,
                         borderRadius: BorderRadius.circular(10),

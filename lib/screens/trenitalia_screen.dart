@@ -20,10 +20,7 @@ class _Train {
   });
 }
 
-// Orari indicativi Cassino <> Roma Termini e Cassino <> Napoli Centrale
-// Fonte: tabelle orarie Trenitalia linea Roma-Cassino-Napoli
 const _kTrains = [
-  // --- Cassino → Roma Termini (mattina scolastica) ---
   _Train(departureTime: '05:48', arrivalTime: '07:48', from: 'Cassino', to: 'Roma Termini', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '06:17', arrivalTime: '08:20', from: 'Cassino', to: 'Roma Termini', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '06:55', arrivalTime: '08:52', from: 'Cassino', to: 'Roma Termini', type: 'R',  notes: 'Feriale'),
@@ -32,18 +29,15 @@ const _kTrains = [
   _Train(departureTime: '13:20', arrivalTime: '15:22', from: 'Cassino', to: 'Roma Termini', type: 'RV', notes: 'Feriale'),
   _Train(departureTime: '14:17', arrivalTime: '16:18', from: 'Cassino', to: 'Roma Termini', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '16:17', arrivalTime: '18:17', from: 'Cassino', to: 'Roma Termini', type: 'R',  notes: 'Feriale'),
-  // --- Roma Termini → Cassino (rientro) ---
   _Train(departureTime: '14:05', arrivalTime: '16:05', from: 'Roma Termini', to: 'Cassino', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '16:05', arrivalTime: '18:05', from: 'Roma Termini', to: 'Cassino', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '17:05', arrivalTime: '19:05', from: 'Roma Termini', to: 'Cassino', type: 'RV', notes: 'Feriale'),
   _Train(departureTime: '18:05', arrivalTime: '20:05', from: 'Roma Termini', to: 'Cassino', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '19:05', arrivalTime: '21:05', from: 'Roma Termini', to: 'Cassino', type: 'R',  notes: 'Feriale'),
-  // --- Cassino → Napoli Centrale ---
   _Train(departureTime: '06:10', arrivalTime: '07:45', from: 'Cassino', to: 'Napoli Centrale', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '07:10', arrivalTime: '08:45', from: 'Cassino', to: 'Napoli Centrale', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '13:10', arrivalTime: '14:45', from: 'Cassino', to: 'Napoli Centrale', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '17:10', arrivalTime: '18:45', from: 'Cassino', to: 'Napoli Centrale', type: 'R',  notes: 'Feriale'),
-  // --- Napoli Centrale → Cassino ---
   _Train(departureTime: '06:15', arrivalTime: '08:00', from: 'Napoli Centrale', to: 'Cassino', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '13:15', arrivalTime: '15:00', from: 'Napoli Centrale', to: 'Cassino', type: 'R',  notes: 'Feriale'),
   _Train(departureTime: '17:15', arrivalTime: '19:00', from: 'Napoli Centrale', to: 'Cassino', type: 'RV', notes: 'Feriale'),
@@ -100,14 +94,11 @@ class _TrenitaliaScreenState extends State<TrenitaliaScreen>
 
   String? _nextTrain(int tabIndex) {
     final now = TimeOfDay.now();
-    final trains = _trainsForTab(tabIndex);
-    for (final t in trains) {
+    for (final t in _trainsForTab(tabIndex)) {
       final parts = t.departureTime.split(':');
       final h = int.parse(parts[0]);
       final m = int.parse(parts[1]);
-      if (h > now.hour || (h == now.hour && m > now.minute)) {
-        return t.departureTime;
-      }
+      if (h > now.hour || (h == now.hour && m > now.minute)) return t.departureTime;
     }
     return null;
   }
@@ -120,13 +111,10 @@ class _TrenitaliaScreenState extends State<TrenitaliaScreen>
     return Scaffold(
       body: Column(
         children: [
-          // Header
           Container(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top + 16,
-              left: 20,
-              right: 20,
-              bottom: 0,
+              left: 20, right: 20, bottom: 0,
             ),
             color: brandColor,
             child: Column(
@@ -140,14 +128,12 @@ class _TrenitaliaScreenState extends State<TrenitaliaScreen>
                       child: GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          width: 44,
-                          height: 44,
+                          width: 44, height: 44,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(Icons.arrow_back_rounded,
-                              color: Colors.white),
+                          child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
                         ),
                       ),
                     ),
@@ -156,9 +142,7 @@ class _TrenitaliaScreenState extends State<TrenitaliaScreen>
                       header: true,
                       child: Text('Trenitalia',
                           style: theme.textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          )),
+                            color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -185,22 +169,15 @@ class _TrenitaliaScreenState extends State<TrenitaliaScreen>
               ],
             ),
           ),
-
-          // Content
           Expanded(
             child: TabBarView(
               controller: _tabCtrl,
               children: List.generate(
                 _tabs.length,
-                (i) => _TrainList(
-                  trains: _trainsForTab(i),
-                  nextTime: _nextTrain(i),
-                ),
+                (i) => _TrainList(trains: _trainsForTab(i), nextTime: _nextTrain(i)),
               ),
             ),
           ),
-
-          // Bottom
           _BottomSection(
             officialUrl: 'https://www.trenitalia.com',
             buttonLabel: 'Apri sito Trenitalia',
@@ -222,8 +199,15 @@ class _TrainList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    const brandColor = Color(0xFF009944);
+
     if (trains.isEmpty) {
-      return const Center(child: Text('Nessuna corsa disponibile'));
+      return Center(
+        child: Text('Nessuna corsa disponibile',
+            style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -243,86 +227,74 @@ class _TrainList extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: isNext
-                    ? const Color(0xFF009944).withValues(alpha: 0.1)
-                    : Colors.white,
+                    ? brandColor.withValues(alpha: isDark ? 0.18 : 0.10)
+                    : cs.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isNext
-                      ? const Color(0xFF009944)
-                      : Colors.grey.shade200,
+                      ? brandColor
+                      : cs.onSurface.withValues(alpha: isDark ? 0.14 : 0.12),
                   width: isNext ? 2 : 1,
                 ),
               ),
               child: Row(
                 children: [
-                  // Orari
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(t.departureTime,
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: isNext
-                                ? const Color(0xFF009944)
-                                : const Color(0xFF1F2937),
+                            color: isNext ? brandColor : cs.onSurface,
                           )),
                       const SizedBox(height: 2),
                       Text('→ ${t.arrivalTime}',
                           style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600])),
+                              ?.copyWith(color: cs.onSurface.withValues(alpha: 0.5))),
                     ],
                   ),
                   const SizedBox(width: 16),
-                  // Tipo + note
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: t.type == 'RV'
-                                ? const Color(0xFF1565C0).withValues(alpha: 0.12)
-                                : Colors.grey.shade100,
+                                ? const Color(0xFF1565C0).withValues(alpha: isDark ? 0.25 : 0.12)
+                                : cs.onSurface.withValues(alpha: isDark ? 0.12 : 0.07),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            t.type == 'RV'
-                                ? 'Regionale Veloce'
-                                : 'Regionale',
+                            t.type == 'RV' ? 'Regionale Veloce' : 'Regionale',
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: t.type == 'RV'
-                                  ? const Color(0xFF1565C0)
-                                  : Colors.grey[700],
+                                  ? (isDark ? const Color(0xFF90CAF9) : const Color(0xFF1565C0))
+                                  : cs.onSurface.withValues(alpha: 0.6),
                             ),
                           ),
                         ),
-                        if (t.notes.isNotEmpty) ...
-                          [
-                            const SizedBox(height: 4),
-                            Text(t.notes,
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: Colors.grey[500])),
-                          ],
+                        if (t.notes.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(t.notes,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: cs.onSurface.withValues(alpha: 0.45))),
+                        ],
                       ],
                     ),
                   ),
-                  // Badge prossimo
                   if (isNext)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF009944),
+                        color: brandColor,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Text('Prossimo',
                           style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold)),
+                              color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                 ],
               ),
@@ -334,7 +306,6 @@ class _TrainList extends StatelessWidget {
   }
 }
 
-// -------- Componente bottom riusabile --------
 class _BottomSection extends StatelessWidget {
   final String officialUrl;
   final String buttonLabel;
@@ -360,44 +331,46 @@ class _BottomSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 12,
+        left: 16, right: 16, top: 12,
         bottom: MediaQuery.of(context).padding.bottom + 12,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12, offset: const Offset(0, -4),
           ),
         ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Disclaimer
           Semantics(
             liveRegion: false,
             label: 'Nota: gli orari sono indicativi e soggetti a variazioni. '
                 'Verifica sempre sul sito ufficiale.',
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
+                color: isDark
+                    ? Colors.amber.shade900.withValues(alpha: 0.25)
+                    : Colors.amber.shade50,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.amber.shade300),
+                border: Border.all(
+                    color: isDark ? Colors.amber.shade700 : Colors.amber.shade300),
               ),
               child: ExcludeSemantics(
                 child: Row(
                   children: [
                     Icon(Icons.info_outline_rounded,
-                        size: 18, color: Colors.amber.shade800),
+                        size: 18,
+                        color: isDark ? Colors.amber.shade400 : Colors.amber.shade800),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -405,7 +378,7 @@ class _BottomSection extends StatelessWidget {
                         'Verifica sempre sul sito ufficiale.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.amber.shade900,
+                          color: isDark ? Colors.amber.shade300 : Colors.amber.shade900,
                         ),
                       ),
                     ),
@@ -415,7 +388,6 @@ class _BottomSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          // Bottone sito ufficiale
           Semantics(
             button: true,
             label: buttonSemanticLabel,
@@ -427,8 +399,7 @@ class _BottomSection extends StatelessWidget {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                      borderRadius: BorderRadius.circular(16)),
                 ),
                 onPressed: () => _launch(context),
                 icon: const Icon(Icons.open_in_new_rounded),
