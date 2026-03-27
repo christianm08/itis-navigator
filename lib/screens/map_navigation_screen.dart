@@ -8,7 +8,7 @@ import '../services/location_service.dart';
 import '../services/navigation_service.dart';
 import '../services/tts_service.dart';
 import 'destination_picker_screen.dart';
-import 'qr_scanner_screen.dart';
+import 'qr_scanner_screen.dart' show QrCameraPage, QrPoint, kQrPoints;
 
 class MapNavigationScreen extends StatefulWidget {
   final Destination destination;
