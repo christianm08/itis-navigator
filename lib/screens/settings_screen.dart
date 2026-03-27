@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/theme_provider.dart';
 import '../services/tts_service.dart';
 import 'onboarding_screen.dart';
 
@@ -39,8 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Ripeti configurazione?'),
         content: const Text(
             'Verrai riportato alla schermata iniziale di configurazione.'),
@@ -76,6 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final themeProvider = context.watch<ThemeProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -91,12 +92,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
               children: [
+                // ── SEZIONE ASPETTO ──────────────────────────────
+                _SectionHeader(label: 'Aspetto', icon: Icons.palette_rounded),
+                const SizedBox(height: 12),
+
+                Semantics(
+                  toggled: themeProvider.isDark,
+                  label: themeProvider.isDark
+                      ? 'Tema scuro attivo. Tocca per passare al tema chiaro.'
+                      : 'Tema chiaro attivo. Tocca per passare al tema scuro.',
+                  child: _SettingsTile(
+                    icon: themeProvider.isDark
+                        ? Icons.dark_mode_rounded
+                        : Icons.light_mode_rounded,
+                    iconColor: themeProvider.isDark ? const Color(0xFF7C3AED) : const Color(0xFFF59E0B),
+                    title: 'Tema scuro',
+                    subtitle: themeProvider.isDark ? 'Attivo' : 'Disattivato',
+                    trailing: ExcludeSemantics(
+                      child: Switch(
+                        value: themeProvider.isDark,
+                        onChanged: (v) => themeProvider.setDark(v),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
+                // ── SEZIONE GUIDA VOCALE ─────────────────────────
                 _SectionHeader(
                     label: 'Guida vocale',
                     icon: Icons.record_voice_over_rounded),
                 const SizedBox(height: 12),
 
-                // Toggle voce
                 Semantics(
                   toggled: _voiceEnabled,
                   label: _voiceEnabled
@@ -116,12 +144,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           setState(() => _voiceEnabled = v);
                           context.read<TtsService>().setEnabled(v);
                           if (v) {
-                            context
-                                .read<TtsService>()
-                                .speak('Guida vocale attivata.');
+                            context.read<TtsService>().speak('Guida vocale attivata.');
                           }
-                          SharedPreferences.getInstance().then(
-                              (p) => p.setBool('tts_enabled', v));
+                          SharedPreferences.getInstance()
+                              .then((p) => p.setBool('tts_enabled', v));
                         },
                       ),
                     ),
@@ -138,8 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     trailing: null,
                   ),
                   Semantics(
-                    label:
-                        'Velocità voce: ${_rateLabel(_speechRate)}. Scorri per cambiare.',
+                    label: 'Velocità voce: ${_rateLabel(_speechRate)}. Scorri per cambiare.',
                     child: Slider(
                       value: _speechRate,
                       min: 0.3,
@@ -149,9 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: (v) => setState(() => _speechRate = v),
                       onChangeEnd: (v) async {
                         await context.read<TtsService>().setSpeechRate(v);
-                        context
-                            .read<TtsService>()
-                            .speak('Questa è la velocità selezionata.');
+                        context.read<TtsService>().speak('Questa è la velocità selezionata.');
                       },
                     ),
                   ),
@@ -160,12 +183,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Lenta',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: Colors.grey)),
-                        Text('Veloce',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: Colors.grey)),
+                        Text('Lenta', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                        Text('Veloce', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
                       ],
                     ),
                   ),
@@ -190,8 +209,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 const SizedBox(height: 28),
 
-                _SectionHeader(
-                    label: 'App', icon: Icons.settings_rounded),
+                // ── SEZIONE APP ──────────────────────────────────
+                _SectionHeader(label: 'App', icon: Icons.settings_rounded),
                 const SizedBox(height: 12),
 
                 Semantics(
@@ -202,8 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     iconColor: cs.secondary,
                     title: 'Ripeti configurazione iniziale',
                     subtitle: 'Torna alla schermata di benvenuto',
-                    trailing: Icon(Icons.chevron_right_rounded,
-                        color: cs.secondary),
+                    trailing: Icon(Icons.chevron_right_rounded, color: cs.secondary),
                     onTap: _resetOnboarding,
                   ),
                 ),
@@ -267,10 +285,11 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return ExcludeSemantics(
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -286,8 +305,7 @@ class _SettingsTile extends StatelessWidget {
             onTap: onTap,
             borderRadius: BorderRadius.circular(18),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   Container(
@@ -309,7 +327,7 @@ class _SettingsTile extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(subtitle,
                             style: theme.textTheme.bodySmall
-                                ?.copyWith(color: Colors.grey[600])),
+                                ?.copyWith(color: cs.onSurface.withOpacity(0.5))),
                       ],
                     ),
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/theme_provider.dart';
 import '../services/tts_service.dart';
 import 'home_screen.dart';
 
@@ -15,7 +16,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  static const int _totalPages = 2;
+  static const int _totalPages = 3;
 
   bool _voiceEnabled = true;
   double _speechRate = 0.5;
@@ -64,7 +65,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
-      if (_currentPage == 0) {
+      if (_currentPage == 1) {
         context.read<TtsService>().speak('Impostazioni guida vocale.');
       }
     } else {
@@ -106,6 +107,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 children: [
                   _PageWelcome(theme: theme),
+                  _PageTheme(theme: theme),
                   _PageVoice(
                     theme: theme,
                     voiceEnabled: _voiceEnabled,
@@ -191,7 +193,7 @@ class _PageWelcome extends StatelessWidget {
             "Ti guido dalla Stazione di Cassino fino all'ITIS Majorana "
             'con indicazioni vocali passo dopo passo.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[600], height: 1.5),
+            style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurface.withOpacity(0.6), height: 1.5),
           ),
           const SizedBox(height: 28),
           _FeatureRow(icon: Icons.record_voice_over_rounded, text: 'Indicazioni vocali in italiano'),
@@ -202,6 +204,120 @@ class _PageWelcome extends StatelessWidget {
           const SizedBox(height: 12),
           _FeatureRow(icon: Icons.qr_code_scanner_rounded, text: 'QR code lungo il percorso'),
         ],
+      ),
+    );
+  }
+}
+
+class _PageTheme extends StatelessWidget {
+  final ThemeData theme;
+  const _PageTheme({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = theme.colorScheme;
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.isDark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              'Aspetto',
+              style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Scegli il tema che preferisci. Potrai cambiarlo in qualsiasi momento nelle impostazioni.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: cs.onSurface.withOpacity(0.6),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Row(
+            children: [
+              Expanded(
+                child: _ThemeCard(
+                  label: 'Chiaro',
+                  icon: Icons.light_mode_rounded,
+                  selected: !isDark,
+                  onTap: () => themeProvider.setDark(false),
+                  cs: cs,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _ThemeCard(
+                  label: 'Scuro',
+                  icon: Icons.dark_mode_rounded,
+                  selected: isDark,
+                  onTap: () => themeProvider.setDark(true),
+                  cs: cs,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeCard extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+
+  const _ThemeCard({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(vertical: 28),
+        decoration: BoxDecoration(
+          color: selected ? cs.primaryContainer : cs.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: selected ? cs.primary : cs.outlineVariant,
+            width: 2,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 48, color: selected ? cs.primary : cs.onSurface.withOpacity(0.4)),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: selected ? cs.primary : cs.onSurface.withOpacity(0.6),
+              ),
+            ),
+            if (selected) ...[  
+              const SizedBox(height: 8),
+              Icon(Icons.check_circle_rounded, color: cs.primary, size: 20),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -245,7 +361,7 @@ class _PageVoice extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             "L'app legge le indicazioni ad alta voce mentre cammini.",
-            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[600], height: 1.5),
+            style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurface.withOpacity(0.6), height: 1.5),
           ),
           const SizedBox(height: 32),
           Semantics(
@@ -259,10 +375,10 @@ class _PageVoice extends StatelessWidget {
                 duration: const Duration(milliseconds: 250),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
-                  color: voiceEnabled ? cs.primaryContainer : Colors.grey[100],
+                  color: voiceEnabled ? cs.primaryContainer : cs.surface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: voiceEnabled ? cs.primary : Colors.grey.shade300,
+                    color: voiceEnabled ? cs.primary : cs.outlineVariant,
                     width: 2,
                   ),
                 ),
@@ -270,7 +386,7 @@ class _PageVoice extends StatelessWidget {
                   children: [
                     Icon(
                       voiceEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                      color: voiceEnabled ? cs.primary : Colors.grey,
+                      color: voiceEnabled ? cs.primary : cs.onSurface.withOpacity(0.4),
                       size: 32,
                     ),
                     const SizedBox(width: 16),
@@ -310,8 +426,8 @@ class _PageVoice extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Lenta', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
-                Text('Veloce', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                Text('Lenta', style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.4))),
+                Text('Veloce', style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.4))),
               ],
             ),
           ],
