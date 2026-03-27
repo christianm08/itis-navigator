@@ -133,13 +133,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsTile(
                     icon: Icons.speed_rounded,
                     iconColor: cs.primary,
-                    title: 'Velocita voce',
+                    title: 'Velocità voce',
                     subtitle: _rateLabel(_speechRate),
                     trailing: null,
                   ),
                   Semantics(
                     label:
-                        'Velocita voce: ${_rateLabel(_speechRate)}. Scorri per cambiare.',
+                        'Velocità voce: ${_rateLabel(_speechRate)}. Scorri per cambiare.',
                     child: Slider(
                       value: _speechRate,
                       min: 0.3,
@@ -151,7 +151,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         await context.read<TtsService>().setSpeechRate(v);
                         context
                             .read<TtsService>()
-                            .speak('Questa e la velocita selezionata.');
+                            .speak('Questa è la velocità selezionata.');
                       },
                     ),
                   ),
