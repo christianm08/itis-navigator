@@ -16,40 +16,81 @@ const _kItis     = LatLng(41.468840, 13.834258);
 /// Lista pubblica dei punti QR — usata anche da MapNavigationScreen
 const kQrPoints = [
   QrPoint(
-    label: 'Punto 1',
+    label: 'Tappa 1',
     password: 'pass1',
     lat: 41.482421,
     lng: 13.825648,
     placeImageAsset: 'assets/place1.jpg',
-    placeName: 'Stazione Centrale',
-    placeAddress: 'Via Roma, 1',
-    placeDescription: 'Questo è il primo punto di interesse del percorso turistico.',
+    placeName: 'Piazza De Gasperi',
+    placeAddress: 'Piazza Alcide De Gasperi, Cassino (FR)',
+    placeDescription:
+        'Cuore del centro moderno di Cassino, la piazza ospita il celebre '
+        'carro armato Sherman M4 e un cannone da 105 mm — simboli della '
+        'Battaglia di Cassino (1943-44) durante la quale la città fu '
+        'completamente rasa al suolo dalla Linea Gustav. Oggi è luogo di '
+        'ritrovo e punto di riferimento della vita cittadina.',
+    placeInfo: [
+      _PlaceInfo(icon: Icons.history_edu_rounded,    label: 'Periodo',   value: 'Ricostruita 1945-1960'),
+      _PlaceInfo(icon: Icons.military_tech_rounded,  label: 'Monumento', value: 'Carro armato Sherman M4'),
+      _PlaceInfo(icon: Icons.directions_walk_rounded, label: 'Distanza dalla stazione', value: '~900 m · 12 min a piedi'),
+    ],
   ),
   QrPoint(
-    label: 'Punto 2',
+    label: 'Tappa 2',
     password: 'pass2',
     lat: 41.475818,
     lng: 13.828921,
     placeImageAsset: 'assets/place2.jpg',
-    placeName: 'Piazza del Duomo',
-    placeAddress: 'Via del Duomo, 10',
-    placeDescription: 'Secondo punto con una vista panoramica spettacolare.',
+    placeName: 'Via Bellini — Zona Scolastica',
+    placeAddress: 'Via Vincenzo Bellini, Cassino (FR)',
+    placeDescription:
+        'Asse viario che attraversa il quartiere scolastico di Cassino, '
+        'a pochi passi dalla Scuola Media Statale e dagli istituti superiori. '
+        'Il nome ricorda il compositore siciliano Vincenzo Bellini. '
+        'La zona è anche servita dalla fermata bus COTRAL che collega '
+        'la stazione ferroviaria con gli istituti scolastici.',
+    placeInfo: [
+      _PlaceInfo(icon: Icons.school_rounded,          label: 'Zona',       value: 'Quartiere scolastico'),
+      _PlaceInfo(icon: Icons.directions_bus_rounded,  label: 'Bus COTRAL', value: 'Fermata Via Bellini'),
+      _PlaceInfo(icon: Icons.directions_walk_rounded, label: 'Distanza da Tappa 1', value: '~700 m · 9 min a piedi'),
+    ],
   ),
   QrPoint(
-    label: 'Punto 3',
+    label: 'Tappa 3',
     password: 'pass3',
     lat: 41.474282,
     lng: 13.828943,
     placeImageAsset: 'assets/place3.jpg',
-    placeName: 'Museo Civico',
-    placeAddress: 'Corso Garibaldi, 50',
-    placeDescription: 'Il terzo punto conclude il percorso con una visita al museo.',
+    placeName: 'ITIS E. Majorana',
+    placeAddress: 'Via G. Labriola, Cassino (FR)',
+    placeDescription:
+        'L\'Istituto Tecnico Industriale "Ettore Majorana" di Cassino, '
+        'intitolato al fisico siciliano scomparso misteriosamente nel 1938. '
+        'Offre indirizzi in Informatica e Telecomunicazioni, Elettronica, '
+        'Meccanica e Meccatronica. È servito dalla fermata COTRAL '
+        'Viale Garigliano/Via Volturno a soli 4 minuti a piedi.',
+    placeInfo: [
+      _PlaceInfo(icon: Icons.science_rounded,         label: 'Intitolato a', value: 'Ettore Majorana (1906-1938)'),
+      _PlaceInfo(icon: Icons.computer_rounded,        label: 'Indirizzo',    value: 'Informatica & Telecomunicazioni'),
+      _PlaceInfo(icon: Icons.directions_bus_rounded,  label: 'Bus COTRAL',  value: 'Viale Garigliano · 4 min'),
+    ],
   ),
 ];
 const _qrPoints = kQrPoints;
 
 /// Raggio entro cui l'utente deve trovarsi per poter scansionare (metri)
 const double _kScanRadius = 30.0;
+
+// ─────────────────────────────────────────────
+// Modello info aggiuntiva per il posto
+// ─────────────────────────────────────────────
+
+class _PlaceInfo {
+  final IconData icon;
+  final String label;
+  final String value;
+  const _PlaceInfo({required this.icon, required this.label, required this.value});
+}
 
 // ─────────────────────────────────────────────
 // Modello punto QR
@@ -64,6 +105,8 @@ class QrPoint {
   final String placeName;
   final String placeAddress;
   final String placeDescription;
+  final List<_PlaceInfo> placeInfo;
+
   const QrPoint({
     required this.label,
     required this.password,
@@ -73,11 +116,12 @@ class QrPoint {
     this.placeName = '',
     this.placeAddress = '',
     this.placeDescription = '',
+    this.placeInfo = const [],
   });
+
   LatLng get latLng => LatLng(lat, lng);
 }
 
-// alias privato per comodità interna
 typedef _QrPoint = QrPoint;
 
 // ─────────────────────────────────────────────
@@ -105,7 +149,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     _fetchPosition();
   }
 
-  // ── GPS ─────────────────────────────────────
   Future<void> _fetchPosition() async {
     setState(() => _loadingGps = true);
     try {
@@ -134,28 +177,21 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     return d != null && d <= _kScanRadius;
   }
 
-  // ── Markers mappa ────────────────────────────
   Set<Marker> _buildMarkers() {
     Theme.of(context);
     final markers = <Marker>{};
-
-    // Marker stazione (verde)
     markers.add(Marker(
       markerId: const MarkerId('stazione'),
       position: _kStazione,
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       infoWindow: const InfoWindow(title: 'Stazione Ferroviaria', snippet: 'Partenza'),
     ));
-
-    // Marker ITIS (blu)
     markers.add(Marker(
       markerId: const MarkerId('itis'),
       position: _kItis,
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       infoWindow: const InfoWindow(title: 'ITIS E. Majorana', snippet: 'Arrivo'),
     ));
-
-    // Marker punti QR (giallo = da sbloccare, viola = sbloccato)
     for (final p in _qrPoints) {
       final done = _unlocked.contains(p.label);
       markers.add(Marker(
@@ -165,7 +201,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           done ? BitmapDescriptor.hueViolet : BitmapDescriptor.hueYellow,
         ),
         infoWindow: InfoWindow(
-          title: p.label,
+          title: p.placeName,
           snippet: done ? '✅ Sbloccato' : 'Scansiona il QR code',
         ),
         onTap: () {
@@ -175,21 +211,19 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               _openScanner(p);
             } else {
               final d = _distanceTo(p);
-              final msg = d != null ? 'Sei a ${d.round()} m — avvicinati a ${_kScanRadius.round()} m' : 'GPS non disponibile';
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(msg),
-                duration: const Duration(seconds: 3),
-              ));
+              final msg = d != null
+                  ? 'Sei a ${d.round()} m — avvicinati a ${_kScanRadius.round()} m'
+                  : 'GPS non disponibile';
+              ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(msg), duration: const Duration(seconds: 3)));
             }
           }
         },
       ));
     }
-
     return markers;
   }
 
-  // ── Apertura scanner ─────────────────────────
   Future<void> _openScanner(_QrPoint point) async {
     await Navigator.push<void>(
       context,
@@ -224,7 +258,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           Text('Percorso completato!'),
         ]),
         content: const Text(
-          'Hai scansionato tutti e 3 i punti del percorso dalla Stazione all\'ITIS. Ottimo lavoro!',
+          'Hai scansionato tutte e 3 le tappe del percorso '
+          'dalla Stazione all\'ITIS E. Majorana. Ottimo lavoro!',
         ),
         actions: [
           TextButton(
@@ -236,7 +271,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     );
   }
 
-  // ── Build ────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -248,7 +282,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // App bar
           SliverAppBar(
             expandedHeight: 130,
             pinned: true,
@@ -283,8 +316,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
           ),
-
-          // Barra progresso
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
@@ -310,8 +341,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ]),
             ),
           ),
-
-          // Mappa Google Maps
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -332,8 +361,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
           ),
-
-          // Legenda mappa
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 10, 24, 4),
@@ -345,8 +372,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ]),
             ),
           ),
-
-          // Lista punti
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
             sliver: SliverList(
@@ -366,7 +391,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       isUnlocked: done,
                       loadingGps: _loadingGps,
                       onLocate: () => _mapController?.animateCamera(
-                          CameraUpdate.newCameraPosition(CameraPosition(target: p.latLng, zoom: 17))),
+                          CameraUpdate.newCameraPosition(
+                              CameraPosition(target: p.latLng, zoom: 17))),
                       onScan: () => _openScanner(p),
                     ),
                   );
@@ -393,7 +419,8 @@ class _LegendDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      Container(width: 12, height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 4),
       Text(label, style: Theme.of(context).textTheme.bodySmall),
     ]);
@@ -434,7 +461,8 @@ class _GpsStatusBanner extends StatelessWidget {
         child: Row(children: [
           Icon(Icons.location_off_rounded, size: 18, color: Colors.orange.shade700),
           const SizedBox(width: 10),
-          Expanded(child: Text('GPS non disponibile', style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange.shade800))),
+          Expanded(child: Text('GPS non disponibile',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange.shade800))),
           IconButton(icon: const Icon(Icons.refresh, size: 18), color: Colors.orange.shade700,
               onPressed: onRefresh, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
         ]),
@@ -476,7 +504,8 @@ class _QrPointCard extends StatelessWidget {
     required this.onLocate, required this.onScan,
   });
 
-  String _formatDistance(double d) => d < 1000 ? '${d.round()} m' : '${(d / 1000).toStringAsFixed(1)} km';
+  String _formatDistance(double d) =>
+      d < 1000 ? '${d.round()} m' : '${(d / 1000).toStringAsFixed(1)} km';
 
   @override
   Widget build(BuildContext context) {
@@ -508,75 +537,106 @@ class _QrPointCard extends StatelessWidget {
         color: Colors.white, borderRadius: BorderRadius.circular(22),
         border: Border.all(color: borderColor, width: isNearby ? 2 : 1.2),
         boxShadow: [BoxShadow(
-          color: isNearby ? theme.colorScheme.primary.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.06),
+          color: isNearby
+              ? theme.colorScheme.primary.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.06),
           blurRadius: 14, offset: const Offset(0, 6),
         )],
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
-        child: Row(children: [
-          // Numero step
-          Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: isUnlocked
-                ? Icon(Icons.check_rounded, color: Colors.green.shade700, size: 22)
-                : Text('${index + 1}', style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 17,
-                    color: isNearby ? theme.colorScheme.primary : Colors.grey.shade500)),
-          ),
-          const SizedBox(width: 14),
-          // Info
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(point.label, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 3),
-            Text(stateLabel, style: theme.textTheme.bodySmall?.copyWith(
-              color: isUnlocked ? Colors.green.shade600 : isNearby ? theme.colorScheme.primary : Colors.grey.shade500,
-              fontWeight: isNearby ? FontWeight.w600 : FontWeight.normal,
-            )),
-          ])),
-          // Pulsante centra mappa
-          IconButton(
-            icon: Icon(Icons.map_rounded, color: theme.colorScheme.primary, size: 22),
-            onPressed: onLocate,
-            tooltip: 'Mostra sulla mappa',
-            padding: const EdgeInsets.all(8),
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 4),
-          // Pulsante scan
-          if (!isUnlocked)
-            ElevatedButton.icon(
-              onPressed: (isNearby || loadingGps) ? onScan : null,
-              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-              label: const Text('Scan'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isNearby ? theme.colorScheme.primary : Colors.grey.shade200,
-                foregroundColor: isNearby ? Colors.white : Colors.grey.shade400,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-            )
-          else
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Riga superiore con numero, nome, bottoni
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 12, 10),
+          child: Row(children: [
             Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(14)),
-              child: Icon(Icons.check_rounded, color: Colors.green.shade700, size: 20),
+              width: 42, height: 42,
+              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: isUnlocked
+                  ? Icon(Icons.check_rounded, color: Colors.green.shade700, size: 22)
+                  : Text('${index + 1}', style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 17,
+                      color: isNearby ? theme.colorScheme.primary : Colors.grey.shade500)),
             ),
-        ]),
-      ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(point.placeName,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              Text(point.label,
+                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade500)),
+              const SizedBox(height: 3),
+              Text(stateLabel, style: theme.textTheme.bodySmall?.copyWith(
+                color: isUnlocked
+                    ? Colors.green.shade600
+                    : isNearby
+                        ? theme.colorScheme.primary
+                        : Colors.grey.shade500,
+                fontWeight: isNearby ? FontWeight.w600 : FontWeight.normal,
+              )),
+            ])),
+            IconButton(
+              icon: Icon(Icons.map_rounded, color: theme.colorScheme.primary, size: 22),
+              onPressed: onLocate,
+              tooltip: 'Mostra sulla mappa',
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 4),
+            if (!isUnlocked)
+              ElevatedButton.icon(
+                onPressed: (isNearby || loadingGps) ? onScan : null,
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                label: const Text('Scan'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isNearby ? theme.colorScheme.primary : Colors.grey.shade200,
+                  foregroundColor: isNearby ? Colors.white : Colors.grey.shade400,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: Colors.green.shade100, borderRadius: BorderRadius.circular(14)),
+                child: Icon(Icons.check_rounded, color: Colors.green.shade700, size: 20),
+              ),
+          ]),
+        ),
+        // Indirizzo
+        if (point.placeAddress.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+            child: Row(children: [
+              Icon(Icons.location_on_outlined, size: 14, color: Colors.grey.shade500),
+              const SizedBox(width: 4),
+              Expanded(child: Text(point.placeAddress,
+                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade500))),
+            ]),
+          ),
+        // Descrizione breve
+        if (point.placeDescription.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+            child: Text(
+              point.placeDescription.length > 120
+                  ? '${point.placeDescription.substring(0, 120)}…'
+                  : point.placeDescription,
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade600, height: 1.5),
+            ),
+          ),
+      ]),
     );
   }
 }
 
 // ─────────────────────────────────────────────
 // Wrapper pubblico per scansione multipla punti QR
-// Usato dalla mappa di navigazione
 // ─────────────────────────────────────────────
 
 class QrCameraPage extends StatefulWidget {
@@ -600,7 +660,6 @@ class _QrCameraPageState extends State<QrCameraPage> {
   @override
   Widget build(BuildContext context) {
     final currentPoint = widget.points[_currentPointIndex];
-
     return _SingleQrCameraPage(
       point: currentPoint,
       onSuccess: () {
@@ -616,8 +675,7 @@ class _QrCameraPageState extends State<QrCameraPage> {
 }
 
 // ─────────────────────────────────────────────
-// Pagina fotocamera QR — implementazione corretta
-// con WidgetsBindingObserver per lifecycle
+// Pagina fotocamera QR
 // ─────────────────────────────────────────────
 
 class _SingleQrCameraPage extends StatefulWidget {
@@ -629,7 +687,8 @@ class _SingleQrCameraPage extends StatefulWidget {
   State<_SingleQrCameraPage> createState() => _SingleQrCameraPageState();
 }
 
-class _SingleQrCameraPageState extends State<_SingleQrCameraPage> with WidgetsBindingObserver {
+class _SingleQrCameraPageState extends State<_SingleQrCameraPage>
+    with WidgetsBindingObserver {
   late final MobileScannerController _ctrl;
   StreamSubscription<Object?>? _subscription;
   bool _processing = false;
@@ -656,28 +715,145 @@ class _SingleQrCameraPageState extends State<_SingleQrCameraPage> with WidgetsBi
     unawaited(_ctrl.stop());
 
     if (raw.trim() == widget.point.password.trim()) {
-      _showSuccess();
+      _showSuccessSheet();
     } else {
-      setState(() { _errorMsg = 'QR non valido per questo punto. Riprova.'; _processing = false; });
+      setState(() { _errorMsg = 'QR non valido per questa tappa. Riprova.'; _processing = false; });
       unawaited(_ctrl.start());
     }
   }
 
-  void _showSuccess() {
-    showDialog(
+  // ── Info Sheet post-scansione ────────────────
+  void _showSuccessSheet() {
+    final p = widget.point;
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(children: [
-          const Text('✅', style: TextStyle(fontSize: 26)),
-          const SizedBox(width: 10),
-          Expanded(child: Text('${widget.point.label} sbloccato!')),
-        ]),
-        content: Text('Hai scansionato correttamente il QR code del ${widget.point.label}.'),
-        actions: [
-          ElevatedButton(onPressed: widget.onSuccess, child: const Text('Continua')),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.72,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: ListView(
+            controller: scrollCtrl,
+            padding: EdgeInsets.zero,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(99)),
+                ),
+              ),
+
+              // Badge successo
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                child: Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.check_circle_rounded, size: 16, color: Colors.green.shade700),
+                      const SizedBox(width: 6),
+                      Text('${p.label} sbloccata!',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                              color: Colors.green.shade700)),
+                    ]),
+                  ),
+                ]),
+              ),
+
+              // Immagine del posto
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: p.placeImageAsset.isNotEmpty
+                      ? Image.asset(
+                          p.placeImageAsset,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _ImagePlaceholder(name: p.placeName),
+                        )
+                      : _ImagePlaceholder(name: p.placeName),
+                ),
+              ),
+
+              // Nome e indirizzo
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(p.placeName,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Icon(Icons.location_on_outlined, size: 15, color: Colors.grey.shade500),
+                    const SizedBox(width: 4),
+                    Expanded(child: Text(p.placeAddress,
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade500))),
+                  ]),
+                ]),
+              ),
+
+              // Info pill chips
+              if (p.placeInfo.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: Wrap(
+                    spacing: 8, runSpacing: 8,
+                    children: p.placeInfo.map((info) => _InfoChip(info: info)).toList(),
+                  ),
+                ),
+
+              // Descrizione
+              if (p.placeDescription.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Storia e curiosità',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text(p.placeDescription,
+                        style: TextStyle(fontSize: 14, color: Colors.grey.shade700, height: 1.6)),
+                  ]),
+                ),
+
+              // Bottone Continua
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context); // chiude sheet
+                      widget.onSuccess();      // avanza navigazione
+                    },
+                    icon: const Icon(Icons.arrow_forward_rounded),
+                    label: const Text('Continua'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -720,7 +896,6 @@ class _SingleQrCameraPageState extends State<_SingleQrCameraPage> with WidgetsBi
         title: Text('Scansiona — ${widget.point.label}',
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         actions: [
-          // Torcia
           ValueListenableBuilder(
             valueListenable: _ctrl,
             builder: (_, state, __) {
@@ -738,18 +913,13 @@ class _SingleQrCameraPageState extends State<_SingleQrCameraPage> with WidgetsBi
         ],
       ),
       body: Stack(children: [
-        // Camera stream
         MobileScanner(controller: _ctrl),
-
-        // Overlay mirino
         Center(
           child: CustomPaint(
             painter: _ScannerOverlayPainter(borderColor: theme.colorScheme.primary),
             child: const SizedBox(width: 260, height: 260),
           ),
         ),
-
-        // Istruzione in alto
         Positioned(
           top: 32, left: 20, right: 20,
           child: Column(children: [
@@ -757,7 +927,7 @@ class _SingleQrCameraPageState extends State<_SingleQrCameraPage> with WidgetsBi
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(16)),
               child: Text(
-                'Inquadra il QR code del ${widget.point.label}',
+                'Inquadra il QR code — ${widget.point.placeName}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
               ),
@@ -766,15 +936,15 @@ class _SingleQrCameraPageState extends State<_SingleQrCameraPage> with WidgetsBi
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(color: Colors.red.shade700.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                    color: Colors.red.shade700.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(14)),
                 child: Text(_errorMsg!, textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white, fontSize: 13)),
               ),
             ],
           ]),
         ),
-
-        // Spinner durante elaborazione
         if (_processing)
           Container(
             color: Colors.black45,
@@ -789,6 +959,73 @@ class _SingleQrCameraPageState extends State<_SingleQrCameraPage> with WidgetsBi
               ]),
             ),
           ),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Chip info (icona + label + valore)
+// ─────────────────────────────────────────────
+
+class _InfoChip extends StatelessWidget {
+  final _PlaceInfo info;
+  const _InfoChip({required this.info});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(info.icon, size: 15, color: theme.colorScheme.primary),
+        const SizedBox(width: 6),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Text(info.label,
+              style: TextStyle(fontSize: 10, color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600)),
+          Text(info.value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Placeholder immagine (quando asset non presente)
+// ─────────────────────────────────────────────
+
+class _ImagePlaceholder extends StatelessWidget {
+  final String name;
+  const _ImagePlaceholder({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: 200,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [theme.colorScheme.primaryContainer, theme.colorScheme.secondaryContainer],
+        ),
+      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.place_rounded, size: 52, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+        const SizedBox(height: 10),
+        Text(name,
+            style: TextStyle(color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600, fontSize: 15)),
+        const SizedBox(height: 4),
+        Text('Immagine non disponibile',
+            style: TextStyle(color: theme.colorScheme.primary.withValues(alpha: 0.6), fontSize: 12)),
       ]),
     );
   }
@@ -824,7 +1061,8 @@ class _ScannerOverlayPainter extends CustomPainter {
     final linePaint = Paint()
       ..color = borderColor.withValues(alpha: 0.45)
       ..strokeWidth = 1.8;
-    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), linePaint);
+    canvas.drawLine(
+        Offset(0, size.height / 2), Offset(size.width, size.height / 2), linePaint);
   }
 
   @override
