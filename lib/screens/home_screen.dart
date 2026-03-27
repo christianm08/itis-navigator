@@ -320,6 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavigationCard(ThemeData theme) {
     final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final scuola = kDestinations.firstWhere(
       (d) => d.name.contains('Biennio'),
       orElse: () => kDestinations.first,
@@ -334,9 +335,12 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(28),
+        border: isDark
+            ? Border.all(color: cs.onSurface.withValues(alpha: 0.12), width: 1)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.08),
             blurRadius: 20, offset: const Offset(0, 10),
           ),
         ],
@@ -349,10 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    cs.primary,
-                    cs.secondary,
-                  ]),
+                  gradient: LinearGradient(colors: [cs.primary, cs.secondary]),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(Icons.navigation_rounded,
@@ -446,14 +447,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSchoolInfoCard(ThemeData theme) {
     final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(28),
+        border: isDark
+            ? Border.all(color: cs.onSurface.withValues(alpha: 0.12), width: 1)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.08),
             blurRadius: 20, offset: const Offset(0, 10),
           ),
         ],
@@ -469,7 +474,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: cs.primaryContainer,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(Icons.school_rounded, size: 28, color: cs.onPrimaryContainer),
+                child: Icon(Icons.school_rounded,
+                    size: 28, color: cs.onPrimaryContainer),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -593,15 +599,20 @@ class _HomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(28),
+        // Bordo sottile in dark mode per dare definizione alle card
+        border: isDark
+            ? Border.all(color: cs.onSurface.withValues(alpha: 0.12), width: 1)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.08),
+            blurRadius: isDark ? 12 : 20,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -638,8 +649,7 @@ class _HomeCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded,
-                      color: cs.primary, size: 28),
+                  Icon(Icons.chevron_right_rounded, color: cs.primary, size: 28),
                 ],
               ),
             ),

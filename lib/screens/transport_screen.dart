@@ -10,6 +10,7 @@ class TransportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Scaffold(
       body: Column(
@@ -26,7 +27,7 @@ class TransportScreen extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
+                colors: [cs.primary, cs.secondary],
               ),
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(36),
@@ -152,12 +153,15 @@ class _TransportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Semantics(
       button: true,
       label: semanticLabel,
       child: ExcludeSemantics(
         child: Material(
-          color: Colors.white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(24),
           child: InkWell(
             onTap: onTap,
@@ -165,11 +169,14 @@ class _TransportCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cs.surface,
                 borderRadius: BorderRadius.circular(24),
+                border: isDark
+                    ? Border.all(color: cs.onSurface.withValues(alpha: 0.12), width: 1)
+                    : null,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -181,7 +188,7 @@ class _TransportCard extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
+                      color: color.withValues(alpha: isDark ? 0.20 : 0.12),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Icon(icon, color: color, size: 30),
@@ -197,12 +204,11 @@ class _TransportCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(subtitle,
                             style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: Colors.grey[600])),
+                                ?.copyWith(color: cs.onSurface.withValues(alpha: 0.55))),
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded,
-                      color: color, size: 30),
+                  Icon(Icons.chevron_right_rounded, color: color, size: 30),
                 ],
               ),
             ),
