@@ -1,4 +1,4 @@
-name: cassino_itis_navigator
+name: itis_navigator
 description: App per navigare dalla Stazione di Cassino all'ITIS E. Majorana
 publish_to: 'none'
 version: 1.0.0+1
