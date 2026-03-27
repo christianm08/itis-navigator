@@ -132,10 +132,7 @@ class RoutingService {
     required LatLng end,
     List<LatLng>? waypoints,
   }) async {
-    // 1. Orienta il percorso fisso verso la destinazione
     final oriented = _orientToward(end);
-
-    // 2. Snap: trova il punto della polilinea più vicino a start
     final snap = _snapToRoute(start, oriented);
 
     List<LatLng> polyline;
@@ -144,16 +141,11 @@ class RoutingService {
     double connectorDurationS = 0;
 
     if (snap.distanceMeters <= _kOffRouteThresholdM) {
-      // --- In percorso: taglia dal punto di snap ---
       final trimmed = oriented.sublist(snap.index);
       polyline = trimmed.length >= 2 ? trimmed : oriented;
     } else {
-      // --- Fuori percorso: percorso reale via OSRM + resto del percorso fisso ---
       final snapPoint = oriented[snap.index];
       final rest = oriented.sublist(snap.index);
-
-      // Chiama OSRM per ottenere un percorso pedonale reale (su strade)
-      // dalla posizione attuale al punto di riaggancio.
       final connector = await _fetchOsrmWalkingRoute(start, snapPoint);
       if (connector != null) {
         polyline = [...connector.polylinePoints, ...rest];
@@ -161,12 +153,10 @@ class RoutingService {
         connectorDistanceM = connector.distanceMeters;
         connectorDurationS = connector.durationSeconds;
       } else {
-        // Fallback: linea retta se OSRM non risponde
         polyline = [start, snapPoint, ...rest];
       }
     }
 
-    // 3. Calcola distanza e durata
     final restLength = _polylineLength(oriented.sublist(snap.index));
     final distanceM = connectorDistanceM > 0
         ? connectorDistanceM + restLength
@@ -175,8 +165,6 @@ class RoutingService {
         ? connectorDurationS + restLength / 1.4
         : distanceM / 1.4;
 
-    // 4. Costruisce gli step: se abbiamo step OSRM dal connettore, li usa;
-    //    altrimenti step minimali.
     final List<RouteStepModel> steps;
     if (connectorSteps != null && connectorSteps.isNotEmpty) {
       steps = [
@@ -210,11 +198,8 @@ class RoutingService {
   // OSRM – Percorso pedonale reale via API pubblica
   // ---------------------------------------------------------------------------
 
-  /// Chiama l'API OSRM pubblica per un percorso pedonale reale.
-  /// Restituisce null in caso di errore (timeout, rete, ecc.).
   Future<_OsrmRouteResult?> _fetchOsrmWalkingRoute(
       LatLng from, LatLng to) async {
-    // OSRM usa formato: lng,lat (NON lat,lng)
     final coords =
         '${from.longitude},${from.latitude};${to.longitude},${to.latitude}';
     final uri = Uri.parse(
@@ -228,33 +213,29 @@ class RoutingService {
       );
 
       if (response.statusCode != 200) {
-        debugPrint('⚠️ OSRM HTTP ${response.statusCode}');
+        if (kDebugMode) debugPrint('⚠️ OSRM HTTP ${response.statusCode}');
         return null;
       }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       if (json['code'] != 'Ok' || (json['routes'] as List).isEmpty) {
-        debugPrint('⚠️ OSRM nessun percorso trovato');
+        if (kDebugMode) debugPrint('⚠️ OSRM nessun percorso trovato');
         return null;
       }
 
       final route = (json['routes'] as List).first as Map<String, dynamic>;
 
-      // --- Polyline dal geometry GeoJSON ---
       final geometry = route['geometry'] as Map<String, dynamic>;
       final coordsList = geometry['coordinates'] as List;
       final polylinePoints = coordsList.map<LatLng>((c) {
-        // GeoJSON: [lng, lat]
         final coord = c as List;
         return LatLng(
             (coord[1] as num).toDouble(), (coord[0] as num).toDouble());
       }).toList();
 
-      // --- Distanza e durata ---
       final distanceM = (route['distance'] as num).toDouble();
       final durationS = (route['duration'] as num).toDouble();
 
-      // --- Step turn-by-turn ---
       final legs = route['legs'] as List;
       final osrmSteps = <RouteStepModel>[];
       if (legs.isNotEmpty) {
@@ -263,7 +244,7 @@ class RoutingService {
         for (final s in stepsJson) {
           final step = s as Map<String, dynamic>;
           final maneuver = step['maneuver'] as Map<String, dynamic>;
-          final loc = maneuver['location'] as List; // [lng, lat]
+          final loc = maneuver['location'] as List;
           final instruction = _osrmManeuverToItalian(
             maneuver['type'] as String? ?? '',
             maneuver['modifier'] as String?,
@@ -279,8 +260,10 @@ class RoutingService {
         }
       }
 
-      debugPrint('✅ OSRM connettore: ${distanceM.round()}m, '
-          '${osrmSteps.length} step, ${polylinePoints.length} punti');
+      if (kDebugMode) {
+        debugPrint('✅ OSRM connettore: ${distanceM.round()}m, '
+            '${osrmSteps.length} step, ${polylinePoints.length} punti');
+      }
 
       return _OsrmRouteResult(
         polylinePoints: polylinePoints,
@@ -289,16 +272,14 @@ class RoutingService {
         durationSeconds: durationS,
       );
     } catch (e) {
-      debugPrint('⚠️ OSRM errore: $e');
+      if (kDebugMode) debugPrint('⚠️ OSRM errore: $e');
       return null;
     }
   }
 
-  /// Traduce il tipo di manovra OSRM in istruzioni italiane.
   String _osrmManeuverToItalian(
       String type, String? modifier, String streetName) {
     final street = streetName.isNotEmpty ? ' su $streetName' : '';
-
     switch (type) {
       case 'depart':
         return 'Parti$street';
@@ -325,9 +306,7 @@ class RoutingService {
       case 'merge':
         return 'Immettiti$street';
       case 'fork':
-        if (modifier?.contains('left') ?? false) {
-          return 'Tieni la sinistra$street';
-        }
+        if (modifier?.contains('left') ?? false) return 'Tieni la sinistra$street';
         return 'Tieni la destra$street';
       case 'roundabout':
       case 'rotary':
@@ -349,7 +328,6 @@ class RoutingService {
   // Utilità geometriche
   // ---------------------------------------------------------------------------
 
-  /// Orienta la polilinea in modo che la fine sia la destinazione.
   List<LatLng> _orientToward(LatLng destination) {
     final dFirst = _haversineM(_kRoutePolyline.first, destination);
     final dLast  = _haversineM(_kRoutePolyline.last,  destination);
@@ -358,7 +336,6 @@ class RoutingService {
         : _kRoutePolyline.reversed.toList();
   }
 
-  /// Trova il punto della [polyline] più vicino a [pos].
   _SnapResult _snapToRoute(LatLng pos, List<LatLng> polyline) {
     int bestIndex = 0;
     double bestDist = double.infinity;
@@ -372,7 +349,6 @@ class RoutingService {
     return _SnapResult(bestIndex, bestDist);
   }
 
-  /// Lunghezza totale di una polilinea in metri.
   double _polylineLength(List<LatLng> pts) {
     double total = 0;
     for (int i = 1; i < pts.length; i++) {
@@ -381,7 +357,6 @@ class RoutingService {
     return total;
   }
 
-  /// Distanza Haversine in metri tra due coordinate.
   double _haversineM(LatLng a, LatLng b) {
     const r = 6371000.0;
     final lat1 = a.latitude  * math.pi / 180;
@@ -395,7 +370,6 @@ class RoutingService {
     return 2 * r * math.asin(math.sqrt(h));
   }
 
-  /// Step minimali con distanza reale calcolata.
   List<RouteStepModel> _buildSteps(
       List<LatLng> polyline, double distanceM, double durationS) {
     return [
