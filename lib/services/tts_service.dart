@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,11 +30,53 @@ class TtsService extends ChangeNotifier {
       await _tts.setSpeechRate(rate);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
-      await _tts.awaitSpeakCompletion(false);
+      // Usa awaitSpeakCompletion(true) così ogni speak() attende
+      // che il precedente finisca davvero prima di partire
+      await _tts.awaitSpeakCompletion(true);
 
-      _tts.setStartHandler(() { _isSpeaking = true; notifyListeners(); });
-      _tts.setCompletionHandler(() { _isSpeaking = false; notifyListeners(); });
-      _tts.setCancelHandler(() { _isSpeaking = false; notifyListeners(); });
+      // Android: forza il canale STREAM_MUSIC (canale media/volume media)
+      // così risponde al tasto volume-media e non al volume-notifiche
+      if (Platform.isAndroid) {
+        await _tts.setEngine(await _tts.getDefaultEngine as String);
+        await _tts.setSharedInstance(true);
+        // 3 = AudioManager.STREAM_MUSIC
+        await _tts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.ambient,
+          [
+            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+          ],
+          IosTextToSpeechAudioMode.voicePrompt,
+        );
+      }
+
+      // iOS: usa voicePrompt così si sente anche in modalità silenzioso
+      if (Platform.isIOS) {
+        await _tts.setSharedInstance(true);
+        await _tts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.playback,
+          [
+            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+          ],
+          IosTextToSpeechAudioMode.voicePrompt,
+        );
+      }
+
+      _tts.setStartHandler(() {
+        _isSpeaking = true;
+        notifyListeners();
+      });
+      _tts.setCompletionHandler(() {
+        _isSpeaking = false;
+        notifyListeners();
+      });
+      _tts.setCancelHandler(() {
+        _isSpeaking = false;
+        notifyListeners();
+      });
       _tts.setErrorHandler((msg) {
         debugPrint('TTS errore: $msg');
         _isSpeaking = false;
@@ -51,7 +94,10 @@ class TtsService extends ChangeNotifier {
     if (!_enabled || text.isEmpty) return;
     await _ready;
     final cleaned = _cleanForSpeech(text);
-    if (cleaned.isEmpty || cleaned == _lastSpoken) return;
+    if (cleaned.isEmpty) return;
+    // Rimuove il blocco dedup aggressivo: lo stesso testo può essere
+    // ripetuto (es. stesso step dopo riposizionamento utente).
+    // Salva comunque _lastSpoken per debug.
     _lastSpoken = cleaned;
     try {
       await _tts.stop();
@@ -75,7 +121,7 @@ class TtsService extends ChangeNotifier {
       _lastSpoken = '';
       notifyListeners();
     } catch (e) {
-      debugPrint('TTS stop errore: $e');
+      debugPrint('TTS stop errore: $e');\
     }
   }
 
