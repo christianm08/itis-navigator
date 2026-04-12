@@ -11,7 +11,6 @@ import '../services/theme_provider.dart';
 const _kStazione = LatLng(41.485302, 13.831859);
 const _kItis     = LatLng(41.468840, 13.834258);
 
-// Dark map style (same as map_navigation_screen)
 const String _darkMapStyle = r'['
   r'{"elementType":"geometry","stylers":[{"color":"#212121"}]},'
   r'{"elementType":"labels.icon","stylers":[{"visibility":"off"}]},'
@@ -35,7 +34,6 @@ const String _darkMapStyle = r'['
   r'{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}'
   r']';
 
-// ─── Dati reali del percorso Stazione → ITIS Majorana, Cassino ───────────────
 const kQrPoints = [
   QrPoint(
     label: 'Piazza Labriola',
@@ -109,7 +107,7 @@ class QrPoint {
   LatLng get latLng => LatLng(lat, lng);
 }
 
-// ─── Screen principale: mappa + lista ────────────────────────────────────────
+// ─── Screen principale ──────────────────────────────────────────────────────────────
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -197,14 +195,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     return d != null && d <= _kScanRadius;
   }
 
-  // Restituisce l'indice del prossimo punto da sbloccare (ordine forzato)
-  int get _nextIndex {
-    for (int i = 0; i < kQrPoints.length; i++) {
-      if (!_unlocked.contains(kQrPoints[i].label)) return i;
-    }
-    return kQrPoints.length;
-  }
-
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
     markers.add(Marker(
@@ -290,7 +280,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // ── Header uniforme (stesso stile COTRAL/Trenitalia/Magni) ──
           Container(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top + 16,
@@ -323,8 +312,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    const Icon(Icons.qr_code_scanner_rounded,
-                        color: Colors.white, size: 26),
+                    const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 26),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -346,8 +334,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(Icons.restart_alt_rounded,
-                              color: Colors.white),
+                          child: const Icon(Icons.restart_alt_rounded, color: Colors.white),
                         ),
                       ),
                     ),
@@ -371,7 +358,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ],
             ),
           ),
-          // ── Corpo scrollabile ─────────────────────────────────────────────
           Expanded(
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
@@ -382,8 +368,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                         Text('Progresso',
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600)),
+                            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                         Text(
                           '${(_unlocked.length / kQrPoints.length * 100).round()}%',
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -395,11 +380,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         borderRadius: BorderRadius.circular(999),
                         child: LinearProgressIndicator(
                           minHeight: 9,
-                          value: kQrPoints.isEmpty
-                              ? 0
-                              : _unlocked.length / kQrPoints.length,
-                          backgroundColor:
-                              cs.onSurface.withValues(alpha: 0.12),
+                          value: kQrPoints.isEmpty ? 0 : _unlocked.length / kQrPoints.length,
+                          backgroundColor: cs.onSurface.withValues(alpha: 0.12),
                           valueColor: AlwaysStoppedAnimation(cs.primary),
                         ),
                       ),
@@ -420,8 +402,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       child: SizedBox(
                         height: 300,
                         child: GoogleMap(
-                          initialCameraPosition:
-                              CameraPosition(target: camPos, zoom: 14.5),
+                          initialCameraPosition: CameraPosition(target: camPos, zoom: 14.5),
                           markers: _buildMarkers(),
                           myLocationEnabled: true,
                           myLocationButtonEnabled: false,
@@ -442,10 +423,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     child: Wrap(spacing: 16, runSpacing: 4, children: [
                       _LegendDot(color: Colors.green.shade600, label: 'Stazione'),
                       _LegendDot(color: Colors.blue.shade600, label: 'ITIS'),
-                      _LegendDot(
-                          color: Colors.amber.shade700, label: 'Da scansionare'),
-                      _LegendDot(
-                          color: Colors.purple.shade400, label: 'Sbloccato'),
+                      _LegendDot(color: Colors.amber.shade700, label: 'Da scansionare'),
+                      _LegendDot(color: Colors.purple.shade400, label: 'Sbloccato'),
                     ]),
                   ),
                 ),
@@ -458,7 +437,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         final dist = _distanceTo(p);
                         final nearby = _isNearby(p);
                         final done = _unlocked.contains(p.label);
-                        // Ordine forzato: il punto è bloccato se quello precedente non è completato
                         final isLocked = i > 0 && !_unlocked.contains(kQrPoints[i - 1].label);
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 14),
@@ -469,8 +447,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             isNearby: nearby,
                             isUnlocked: done,
                             isLocked: isLocked,
-                            onLocate: () =>
-                                _mapController?.animateCamera(
+                            onLocate: () => _mapController?.animateCamera(
                               CameraUpdate.newCameraPosition(
                                   CameraPosition(target: p.latLng, zoom: 17)),
                             ),
@@ -509,15 +486,15 @@ class QrCameraPage extends StatefulWidget {
   State<QrCameraPage> createState() => _QrCameraPageState();
 }
 
-class _QrCameraPageState extends State<QrCameraPage>
-    with WidgetsBindingObserver {
+class _QrCameraPageState extends State<QrCameraPage> with WidgetsBindingObserver {
   MobileScannerController? _ctrl;
   StreamSubscription<Object?>? _subscription;
   bool _processing = false;
   String? _errorMsg;
   bool _started = false;
 
-  // FIX: traccia se il QR è stato riconosciuto per gestire il swipe-down
+  // Traccia il punto da sbloccare: se lo sheet viene chiuso via swipe-down,
+  // viene comunque sbloccato tramite il .then()
   QrPoint? _pendingUnlock;
 
   @override
@@ -540,8 +517,7 @@ class _QrCameraPageState extends State<QrCameraPage>
       debugPrint('Camera start error: $e');
       if (mounted) {
         setState(() {
-          _errorMsg = 'Impossibile avviare la fotocamera. '
-              'Controlla i permessi nelle impostazioni.';
+          _errorMsg = 'Impossibile avviare la fotocamera. Controlla i permessi nelle impostazioni.';
         });
       }
     });
@@ -562,8 +538,7 @@ class _QrCameraPageState extends State<QrCameraPage>
 
     if (matched == null) {
       setState(() {
-        _errorMsg = 'QR non riconosciuto. Assicurati di scansionare '
-            'uno dei QR code del percorso.';
+        _errorMsg = 'QR non riconosciuto. Assicurati di scansionare uno dei QR code del percorso.';
         _processing = false;
       });
       _ctrl?.start();
@@ -583,29 +558,10 @@ class _QrCameraPageState extends State<QrCameraPage>
   }
 
   void _showSuccess(QrPoint point) {
-    // FIX: salva il pending unlock prima di aprire il bottom sheet.
-    // Se l'utente fa swipe-down senza premere "Continua", il punto
-    // viene comunque sbloccato tramite il WillPopScope del sheet.
     _pendingUnlock = point;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: true,
-      backgroundColor: Colors.transparent,
-      // FIX: .then() gestisce la chiusura via swipe-down
-    ).then((_) {
-      if (_pendingUnlock != null) {
-        // L'utente ha chiuso il sheet senza premere "Continua" — sblocca comunque
-        widget.onUnlock(_pendingUnlock!.label);
-        _pendingUnlock = null;
-        if (mounted) Navigator.pop(context);
-      }
-    });
-
-    // Rebuild the showModalBottomSheet call with the builder
-    showModalBottomSheet(
+    // Un solo showModalBottomSheet con builder + .then() per gestire swipe-down
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       isDismissible: true,
@@ -621,7 +577,8 @@ class _QrCameraPageState extends State<QrCameraPage>
         },
       ),
     ).then((_) {
-      // Sheet chiuso (sia via "Continua" che via swipe-down)
+      // Raggiunto sia via "Continua" che via swipe-down.
+      // Se _pendingUnlock != null, "Continua" non è stato premuto → sblocca comunque.
       if (_pendingUnlock != null) {
         widget.onUnlock(_pendingUnlock!.label);
         _pendingUnlock = null;
@@ -667,10 +624,8 @@ class _QrCameraPageState extends State<QrCameraPage>
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text(
-          'Scansiona QR',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Scansiona QR',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         actions: [
           if (_ctrl != null)
             ValueListenableBuilder(
@@ -679,9 +634,7 @@ class _QrCameraPageState extends State<QrCameraPage>
                 final torch = state.torchState;
                 return IconButton(
                   icon: Icon(
-                    torch == TorchState.on
-                        ? Icons.flash_on_rounded
-                        : Icons.flash_off_rounded,
+                    torch == TorchState.on ? Icons.flash_on_rounded : Icons.flash_off_rounded,
                     color: torch == TorchState.on ? Colors.yellow : Colors.white,
                   ),
                   onPressed: () => _ctrl?.toggleTorch(),
@@ -727,8 +680,7 @@ class _QrCameraPageState extends State<QrCameraPage>
         if (_ctrl != null && _errorMsg == null)
           Center(
             child: CustomPaint(
-              painter: _ScannerOverlayPainter(
-                  borderColor: theme.colorScheme.primary),
+              painter: _ScannerOverlayPainter(borderColor: theme.colorScheme.primary),
               child: const SizedBox(width: 260, height: 260),
             ),
           ),
@@ -740,15 +692,11 @@ class _QrCameraPageState extends State<QrCameraPage>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(16)),
+                  color: Colors.black54, borderRadius: BorderRadius.circular(16)),
               child: const Text(
                 'Inquadra un QR code del percorso',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500),
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
               ),
             ),
             if (_errorMsg != null && _started) ...[
@@ -789,7 +737,7 @@ class _QrCameraPageState extends State<QrCameraPage>
   }
 }
 
-// ─── Dialog completamento con animazione ─────────────────────────────────────
+// ─── Dialog completamento con animazione confetti ────────────────────────────────────
 
 class _CompletionDialog extends StatefulWidget {
   const _CompletionDialog();
@@ -809,20 +757,15 @@ class _CompletionDialogState extends State<_CompletionDialog>
   @override
   void initState() {
     super.initState();
-
     _scaleCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
+        vsync: this, duration: const Duration(milliseconds: 500));
     _scaleAnim = CurvedAnimation(parent: _scaleCtrl, curve: Curves.elasticOut);
     _scaleCtrl.forward();
 
     _confettiCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..addListener(() => setState(() {}));
+        vsync: this, duration: const Duration(milliseconds: 2000))
+      ..addListener(() => setState(() {}));
 
-    // Genera particelle confetti
     for (int i = 0; i < 60; i++) {
       _particles.add(_ConfettiParticle(rng: _rng));
     }
@@ -842,21 +785,16 @@ class _CompletionDialogState extends State<_CompletionDialog>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-
     return Stack(
       children: [
-        // Confetti layer
         Positioned.fill(
           child: IgnorePointer(
             child: CustomPaint(
               painter: _ConfettiPainter(
-                particles: _particles,
-                progress: _confettiCtrl.value,
-              ),
+                  particles: _particles, progress: _confettiCtrl.value),
             ),
           ),
         ),
-        // Dialog
         Center(
           child: ScaleTransition(
             scale: _scaleAnim,
@@ -869,21 +807,17 @@ class _CompletionDialogState extends State<_CompletionDialog>
                   children: [
                     const Text('🎉', style: TextStyle(fontSize: 56)),
                     const SizedBox(height: 16),
-                    Text(
-                      'Percorso completato!',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    Text('Percorso completato!',
+                        style: theme.textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 12),
                     Text(
                       'Hai scansionato tutti e ${kQrPoints.length} i punti del percorso '
                       'dalla Stazione all\'ITIS. Ottimo lavoro!',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.7),
-                        height: 1.5,
-                      ),
+                          color: cs.onSurface.withValues(alpha: 0.7),
+                          height: 1.5),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 28),
@@ -914,28 +848,18 @@ class _CompletionDialogState extends State<_CompletionDialog>
   }
 }
 
-// ─── Confetti painter ─────────────────────────────────────────────────────────
+// ─── Confetti ──────────────────────────────────────────────────────────────────
 
 class _ConfettiParticle {
-  final double x;
-  final double vy;
-  final double vx;
+  final double x, vy, vx, size, rotation;
   final Color color;
-  final double size;
-  final double rotation;
-
   _ConfettiParticle({required math.Random rng})
       : x = rng.nextDouble(),
         vy = 0.3 + rng.nextDouble() * 0.7,
         vx = (rng.nextDouble() - 0.5) * 0.3,
         color = [
-          Colors.red,
-          Colors.blue,
-          Colors.green,
-          Colors.yellow,
-          Colors.purple,
-          Colors.orange,
-          Colors.pink,
+          Colors.red, Colors.blue, Colors.green, Colors.yellow,
+          Colors.purple, Colors.orange, Colors.pink,
         ][rng.nextInt(7)],
         size = 6 + rng.nextDouble() * 8,
         rotation = rng.nextDouble() * math.pi * 2;
@@ -944,7 +868,6 @@ class _ConfettiParticle {
 class _ConfettiPainter extends CustomPainter {
   final List<_ConfettiParticle> particles;
   final double progress;
-
   const _ConfettiPainter({required this.particles, required this.progress});
 
   @override
@@ -955,14 +878,12 @@ class _ConfettiPainter extends CustomPainter {
       final y = -50 + p.vy * (size.height + 100) * progress;
       final opacity = progress < 0.7 ? 1.0 : (1.0 - progress) / 0.3;
       paint.color = p.color.withValues(alpha: opacity.clamp(0.0, 1.0));
-
       canvas.save();
       canvas.translate(x, y);
       canvas.rotate(p.rotation + progress * math.pi * 4);
       canvas.drawRect(
-        Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.5),
-        paint,
-      );
+          Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.5),
+          paint);
       canvas.restore();
     }
   }
@@ -979,15 +900,14 @@ class _LegendDot extends StatelessWidget {
   const _LegendDot({required this.color, required this.label});
 
   @override
-  Widget build(BuildContext context) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-          width: 12, height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-      const SizedBox(width: 4),
-      Text(label, style: Theme.of(context).textTheme.bodySmall),
-    ]);
-  }
+  Widget build(BuildContext context) =>
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+            width: 12, height: 12,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ]);
 }
 
 // ─── Banner GPS ───────────────────────────────────────────────────────────────
@@ -1009,17 +929,13 @@ class _GpsStatusBanner extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-            color: cs.primaryContainer,
-            borderRadius: BorderRadius.circular(14)),
+            color: cs.primaryContainer, borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
-          const SizedBox(
-              width: 16, height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
           const SizedBox(width: 12),
           Text('Rilevamento GPS...',
               style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: cs.onPrimaryContainer)),
+                  fontWeight: FontWeight.w500, color: cs.onPrimaryContainer)),
         ]),
       );
     }
@@ -1032,30 +948,21 @@ class _GpsStatusBanner extends StatelessWidget {
               : Colors.orange.shade50,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-              color: isDark
-                  ? Colors.orange.shade700
-                  : Colors.orange.shade200),
+              color: isDark ? Colors.orange.shade700 : Colors.orange.shade200),
         ),
         child: Row(children: [
           Icon(Icons.location_off_rounded,
               size: 18,
-              color: isDark
-                  ? Colors.orange.shade300
-                  : Colors.orange.shade700),
+              color: isDark ? Colors.orange.shade300 : Colors.orange.shade700),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-                'GPS non disponibile — puoi comunque scansionare',
+            child: Text('GPS non disponibile — puoi comunque scansionare',
                 style: theme.textTheme.bodySmall?.copyWith(
-                    color: isDark
-                        ? Colors.orange.shade300
-                        : Colors.orange.shade800)),
+                    color: isDark ? Colors.orange.shade300 : Colors.orange.shade800)),
           ),
           IconButton(
               icon: const Icon(Icons.refresh, size: 18),
-              color: isDark
-                  ? Colors.orange.shade300
-                  : Colors.orange.shade700,
+              color: isDark ? Colors.orange.shade300 : Colors.orange.shade700,
               onPressed: onRefresh,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints()),
@@ -1069,22 +976,17 @@ class _GpsStatusBanner extends StatelessWidget {
             ? Colors.green.shade900.withValues(alpha: 0.35)
             : Colors.green.shade50,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color:
-                isDark ? Colors.green.shade700 : Colors.green.shade200),
+        border:
+            Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade200),
       ),
       child: Row(children: [
         Icon(Icons.my_location_rounded,
             size: 18,
-            color: isDark
-                ? Colors.green.shade400
-                : Colors.green.shade700),
+            color: isDark ? Colors.green.shade400 : Colors.green.shade700),
         const SizedBox(width: 10),
         Text('GPS attivo — precisione ${position!.accuracy.round()} m',
             style: theme.textTheme.bodySmall?.copyWith(
-                color: isDark
-                    ? Colors.green.shade400
-                    : Colors.green.shade800)),
+                color: isDark ? Colors.green.shade400 : Colors.green.shade800)),
       ]),
     );
   }
@@ -1098,7 +1000,7 @@ class _QrPointCard extends StatelessWidget {
   final double? distance;
   final bool isNearby;
   final bool isUnlocked;
-  final bool isLocked; // ordine forzato: punto precedente non ancora completato
+  final bool isLocked;
   final VoidCallback onLocate;
   final VoidCallback onScan;
 
@@ -1127,13 +1029,11 @@ class _QrPointCard extends StatelessWidget {
     Color iconTextColor;
 
     if (isUnlocked) {
-      borderColor =
-          isDark ? Colors.green.shade600 : Colors.green.shade300;
+      borderColor = isDark ? Colors.green.shade600 : Colors.green.shade300;
       iconBg = isDark
           ? Colors.green.shade900.withValues(alpha: 0.5)
           : Colors.green.shade100;
-      iconTextColor =
-          isDark ? Colors.green.shade400 : Colors.green.shade700;
+      iconTextColor = isDark ? Colors.green.shade400 : Colors.green.shade700;
     } else if (isLocked) {
       borderColor = isDark
           ? cs.onSurface.withValues(alpha: 0.10)
@@ -1163,7 +1063,7 @@ class _QrPointCard extends StatelessWidget {
     final stateLabel = isUnlocked
         ? '✅ Completato'
         : isLocked
-            ? '🔒 Completa prima il punto ${index}'
+            ? '🔒 Completa prima il punto $index'
             : isNearby
                 ? '📡 Sei vicino — pronto per scansionare!'
                 : distance != null
@@ -1207,27 +1107,25 @@ class _QrPointCard extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(point.label,
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 3),
-                    Text(stateLabel,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: isUnlocked
-                              ? (isDark
-                                  ? Colors.green.shade400
-                                  : Colors.green.shade600)
-                              : isLocked
-                                  ? cs.onSurface.withValues(alpha: 0.35)
-                                  : isNearby
-                                      ? cs.primary
-                                      : cs.onSurface.withValues(alpha: 0.45),
-                          fontWeight:
-                              isNearby ? FontWeight.w600 : FontWeight.normal,
-                        )),
-                  ]),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(point.label,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 3),
+                  Text(stateLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isUnlocked
+                            ? (isDark ? Colors.green.shade400 : Colors.green.shade600)
+                            : isLocked
+                                ? cs.onSurface.withValues(alpha: 0.35)
+                                : isNearby
+                                    ? cs.primary
+                                    : cs.onSurface.withValues(alpha: 0.45),
+                        fontWeight: isNearby ? FontWeight.w600 : FontWeight.normal,
+                      )),
+                ],
+              ),
             ),
             IconButton(
               icon: Icon(Icons.map_rounded, color: cs.primary, size: 22),
@@ -1240,23 +1138,19 @@ class _QrPointCard extends StatelessWidget {
             if (!isUnlocked && !isLocked)
               ElevatedButton.icon(
                 onPressed: onScan,
-                icon:
-                    const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
                 label: const Text('Scan'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isNearby
-                      ? cs.primary
-                      : cs.primary.withValues(alpha: 0.7),
+                  backgroundColor:
+                      isNearby ? cs.primary : cs.primary.withValues(alpha: 0.7),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               )
             else if (isUnlocked)
@@ -1269,9 +1163,7 @@ class _QrPointCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(Icons.check_rounded,
-                    color: isDark
-                        ? Colors.green.shade400
-                        : Colors.green.shade700,
+                    color: isDark ? Colors.green.shade400 : Colors.green.shade700,
                     size: 20),
               ),
           ]),
@@ -1298,28 +1190,21 @@ class _ScannerOverlayPainter extends CustomPainter {
     final r = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.drawLine(r.topLeft, r.topLeft + const Offset(cornerLen, 0), paint);
     canvas.drawLine(r.topLeft, r.topLeft + const Offset(0, cornerLen), paint);
-    canvas.drawLine(
-        r.topRight, r.topRight + const Offset(-cornerLen, 0), paint);
-    canvas.drawLine(
-        r.topRight, r.topRight + const Offset(0, cornerLen), paint);
-    canvas.drawLine(
-        r.bottomLeft, r.bottomLeft + const Offset(cornerLen, 0), paint);
-    canvas.drawLine(
-        r.bottomLeft, r.bottomLeft + const Offset(0, -cornerLen), paint);
-    canvas.drawLine(
-        r.bottomRight, r.bottomRight + const Offset(-cornerLen, 0), paint);
-    canvas.drawLine(
-        r.bottomRight, r.bottomRight + const Offset(0, -cornerLen), paint);
+    canvas.drawLine(r.topRight, r.topRight + const Offset(-cornerLen, 0), paint);
+    canvas.drawLine(r.topRight, r.topRight + const Offset(0, cornerLen), paint);
+    canvas.drawLine(r.bottomLeft, r.bottomLeft + const Offset(cornerLen, 0), paint);
+    canvas.drawLine(r.bottomLeft, r.bottomLeft + const Offset(0, -cornerLen), paint);
+    canvas.drawLine(r.bottomRight, r.bottomRight + const Offset(-cornerLen, 0), paint);
+    canvas.drawLine(r.bottomRight, r.bottomRight + const Offset(0, -cornerLen), paint);
     final linePaint = Paint()
       ..color = borderColor.withValues(alpha: 0.45)
       ..strokeWidth = 1.8;
-    canvas.drawLine(Offset(0, size.height / 2),
-        Offset(size.width, size.height / 2), linePaint);
+    canvas.drawLine(
+        Offset(0, size.height / 2), Offset(size.width, size.height / 2), linePaint);
   }
 
   @override
-  bool shouldRepaint(_ScannerOverlayPainter old) =>
-      old.borderColor != borderColor;
+  bool shouldRepaint(_ScannerOverlayPainter old) => old.borderColor != borderColor;
 }
 
 // ─── Bottom Sheet info luogo ──────────────────────────────────────────────────
@@ -1335,8 +1220,7 @@ class _PlaceInfoSheet extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final hasImage = point.placeImageAsset.isNotEmpty;
-    final name =
-        point.placeName.isNotEmpty ? point.placeName : point.label;
+    final name = point.placeName.isNotEmpty ? point.placeName : point.label;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.70,
@@ -1345,19 +1229,17 @@ class _PlaceInfoSheet extends StatelessWidget {
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.only(top: 12, bottom: 4),
               child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                    color: cs.onSurface.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(2)),
-              ),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(2))),
             ),
             Expanded(
               child: ListView(
@@ -1367,17 +1249,14 @@ class _PlaceInfoSheet extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.green.shade900.withValues(alpha: 0.4)
                             : Colors.green.shade50,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: isDark
-                                ? Colors.green.shade600
-                                : Colors.green.shade300),
+                            color: isDark ? Colors.green.shade600 : Colors.green.shade300),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1404,11 +1283,9 @@ class _PlaceInfoSheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     child: hasImage
                         ? Image.asset(point.placeImageAsset,
-                            height: 200,
-                            width: double.infinity,
+                            height: 200, width: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _buildPlaceholder(theme))
+                            errorBuilder: (_, __, ___) => _buildPlaceholder(theme))
                         : _buildPlaceholder(theme),
                   ),
                   const SizedBox(height: 20),
@@ -1419,29 +1296,24 @@ class _PlaceInfoSheet extends StatelessWidget {
                   if (point.placeAddress.isNotEmpty) ...[
                     Row(children: [
                       Icon(Icons.location_on_outlined,
-                          size: 18,
-                          color: cs.onSurface.withValues(alpha: 0.5)),
+                          size: 18, color: cs.onSurface.withValues(alpha: 0.5)),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(point.placeAddress,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                                color:
-                                    cs.onSurface.withValues(alpha: 0.6))),
+                                color: cs.onSurface.withValues(alpha: 0.6))),
                       ),
                     ]),
                     const SizedBox(height: 16),
                   ],
-                  Divider(
-                      color: cs.onSurface.withValues(alpha: 0.1),
-                      height: 1),
+                  Divider(color: cs.onSurface.withValues(alpha: 0.1), height: 1),
                   const SizedBox(height: 16),
                   Text(
                     point.placeDescription.isNotEmpty
                         ? point.placeDescription
                         : 'Descrizione non ancora disponibile.',
                     style: theme.textTheme.bodyLarge?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.85),
-                        height: 1.6),
+                        color: cs.onSurface.withValues(alpha: 0.85), height: 1.6),
                   ),
                   const SizedBox(height: 28),
                 ],
@@ -1449,17 +1321,14 @@ class _PlaceInfoSheet extends StatelessWidget {
             ),
             Container(
               padding: EdgeInsets.only(
-                  left: 24,
-                  right: 24,
-                  top: 12,
+                  left: 24, right: 24, top: 12,
                   bottom: MediaQuery.of(context).padding.bottom + 16),
               decoration: BoxDecoration(
                 color: cs.surface,
                 boxShadow: [
                   BoxShadow(
                       color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, -4)),
+                      blurRadius: 12, offset: const Offset(0, -4)),
                 ],
               ),
               child: SizedBox(
@@ -1469,8 +1338,7 @@ class _PlaceInfoSheet extends StatelessWidget {
                   icon: const Icon(Icons.arrow_forward_rounded),
                   label: const Text('Continua'),
                   style: ElevatedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18)),
                   ),
@@ -1483,32 +1351,29 @@ class _PlaceInfoSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder(ThemeData theme) {
-    return Container(
-      height: 200, width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.primaryContainer,
-            theme.colorScheme.secondaryContainer,
-          ],
+  Widget _buildPlaceholder(ThemeData theme) => Container(
+        height: 200, width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              theme.colorScheme.primaryContainer,
+              theme.colorScheme.secondaryContainer,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
         ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.image_rounded,
-            size: 56,
-            color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-        const SizedBox(height: 10),
-        Text('Immagine in arrivo',
-            style: TextStyle(
-                color:
-                    theme.colorScheme.primary.withValues(alpha: 0.7),
-                fontWeight: FontWeight.w600,
-                fontSize: 14)),
-      ]),
-    );
-  }
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.image_rounded,
+              size: 56,
+              color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+          const SizedBox(height: 10),
+          Text('Immagine in arrivo',
+              style: TextStyle(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14)),
+        ]),
+      );
 }
