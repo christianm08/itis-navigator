@@ -50,7 +50,7 @@ const kQrPoints = [
         'La piazza ospita eventi culturali e mercati locali durante tutto l\'anno.',
     placeAddress: 'Piazza Giuseppe Garibaldi, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Cassino_-_Piazza_Garibaldi.jpg/1280px-Cassino_-_Piazza_Garibaldi.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Piazza_Garibaldi_G.jpg/1280px-Piazza_Garibaldi_G.jpg',
   ),
   QrPoint(
     label: 'Anfiteatro Romano',
@@ -65,7 +65,7 @@ const kQrPoints = [
         'più significativi della storia romana di Cassino.',
     placeAddress: 'Zona archelogica, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Cassino_-_Anfiteatro_romano.jpg/1280px-Cassino_-_Anfiteatro_romano.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Anfiteatro_romano_cassino.jpg/720px-Anfiteatro_romano_cassino.jpg',
   ),
   QrPoint(
     label: 'Terme Romane',
@@ -80,7 +80,7 @@ const kQrPoints = [
         'testimoniano la grandezza dell\'antica civiltà romana nel territorio.',
     placeAddress: 'Via delle Terme, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Cassino_-_Terme_romane.jpg/1280px-Cassino_-_Terme_romane.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Casinum_-_Terme_romane_-_2023-09-13_22-43-28_001.jpg/1280px-Casinum_-_Terme_romane_-_2023-09-13_22-43-28_001.jpg',
   ),
   QrPoint(
     label: 'Museo Storico della Battaglia',
@@ -95,7 +95,7 @@ const kQrPoints = [
         'che testimoniano il sacrificio di soldati di numerose nazioni.',
     placeAddress: 'Via Rocca Janula, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Museo_Storico_Cassino.jpg/1280px-Museo_Storico_Cassino.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Cassino_-_Cassino_Museo_Arte_Contemporanea_-_2024-09-20_11-03-18_002.jpg/1080px-Cassino_-_Cassino_Museo_Arte_Contemporanea_-_2024-09-20_11-03-18_002.jpg',
   ),
   QrPoint(
     label: 'Cimitero Polacco',
@@ -110,7 +110,7 @@ const kQrPoints = [
         'Polacco che combatterono sotto il generale Anders per la liberazione d\'Italia.',
     placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Polish_War_Cemetery_Cassino_2015_02.jpg/1280px-Polish_War_Cemetery_Cassino_2015_02.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Polish_War_Cemetery_Cassino_2015_02.jpg/1280px-Polish_War_Cemetery_Cassino_2015_02.jpg',
   ),
   QrPoint(
     label: 'Abbazia di Montecassino',
@@ -126,7 +126,7 @@ const kQrPoints = [
         'panoramica sulla Valle del Liri.',
     placeAddress: 'Via Montecassino, Montecassino, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Montecassino_abbey_may_2008.jpg/1280px-Montecassino_abbey_may_2008.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Montecassino_abbey_may_2008.jpg/1280px-Montecassino_abbey_may_2008.jpg',
   ),
   QrPoint(
     label: 'Parco Folcara',
@@ -141,7 +141,7 @@ const kQrPoints = [
         'nella natura, con aree attrezzate per il tempo libero.',
     placeAddress: 'Via Ausonia / Sentiero Mastronardi, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Cassino_parco.jpg/1280px-Cassino_parco.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Hills_Behind_Cassino_-_panoramio.jpg/1280px-Hills_Behind_Cassino_-_panoramio.jpg',
   ),
   // Punto 8: Università degli Studi di Cassino — campus Folcara (Rettorato)
   QrPoint(
@@ -157,7 +157,7 @@ const kQrPoints = [
         'Lettere e Scienze. È un polo formativo di riferimento per tutto il Lazio meridionale.',
     placeAddress: 'Viale dell\'Università, Loc. Folcara, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Universit%C3%A0_di_Cassino.jpg/1280px-Universit%C3%A0_di_Cassino.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Polo_Folcara.jpg/1280px-Polo_Folcara.jpg',
   ),
   // Punto 9: ITIS Ettore Majorana — istituto tecnico industriale di Cassino
   QrPoint(
@@ -174,7 +174,7 @@ const kQrPoints = [
         'nel settore tecnologico e industriale.',
     placeAddress: 'Via G. Di Biasio, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Universit%C3%A0_di_Cassino.jpg/1280px-Universit%C3%A0_di_Cassino.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Cassino_2010-by-RaBoe-02.jpg/1200px-Cassino_2010-by-RaBoe-02.jpg',
   ),
 ];
 
