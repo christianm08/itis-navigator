@@ -82,7 +82,6 @@ const kQrPoints = [
     placeImageUrl:
         'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Cassino_-_Terme_romane.jpg/1280px-Cassino_-_Terme_romane.jpg',
   ),
-  // Punto 4: le coordinate si trovano in zona Museo Storico, non all'Abbazia
   QrPoint(
     label: 'Museo Storico della Battaglia',
     password: 'pass4',
@@ -144,38 +143,38 @@ const kQrPoints = [
     placeImageUrl:
         'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Cassino_parco.jpg/1280px-Cassino_parco.jpg',
   ),
-  // Punto 8: le coordinate corrispondono all'Università di Cassino, non all'ITIS
+  // Punto 8: Università degli Studi di Cassino — campus Folcara (Rettorato)
   QrPoint(
     label: 'Università di Cassino',
     password: 'pass8',
-    lat: 41.46813009510813,
-    lng: 13.831122747134286,
-    placeName: 'Università degli Studi di Cassino',
+    lat: 41.47220,
+    lng: 13.82980,
+    placeName: 'Università degli Studi di Cassino e del Lazio Meridionale',
     placeDescription:
         'L\'Università degli Studi di Cassino e del Lazio Meridionale (UNICAS) '
-        'è un ateneo statale fondato nel 1979. Offre corsi in Ingegneria, '
-        'Economia, Lettere e Scienze. Il campus è distribuito in più sedi '
-        'nella città e rappresenta un polo formativo importante per tutto il Lazio meridionale.',
-    placeAddress: 'Via G. Di Biasio 43, Cassino (FR)',
+        'è un ateneo statale fondato nel 1979. Il campus principale si trova nella '
+        'località Folcara e ospita i dipartimenti di Ingegneria, Economia, '
+        'Lettere e Scienze. È un polo formativo di riferimento per tutto il Lazio meridionale.',
+    placeAddress: 'Viale dell\'Università, Loc. Folcara, Cassino (FR)',
     placeImageUrl:
         'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Universit%C3%A0_di_Cassino.jpg/1280px-Universit%C3%A0_di_Cassino.jpg',
   ),
-  // Punto 9 (ex "Rocca Janula"): le coordinate si trovano sotto Montecassino
+  // Punto 9: ITIS Ettore Majorana — istituto tecnico industriale di Cassino
   QrPoint(
-    label: 'Rocca Janula',
+    label: 'ITIS Majorana',
     password: 'pass9',
-    lat: 41.47767602497951,
-    lng: 13.826309190301341,
-    placeName: 'Rocca Janula',
+    lat: 41.46884,
+    lng: 13.83426,
+    placeName: 'ITIS "Ettore Majorana" di Cassino',
     placeDescription:
-        'La Rocca Janula è una fortezza medievale che sorge su una collina '
-        'che domina la città di Cassino. Costruita intorno all\'XI secolo, '
-        'fu per secoli il baluardo difensivo della città. '
-        'Dalla rocca si gode un panorama mozzafiato sulla Valle del Liri '
-        'e sull\'Abbazia di Montecassino.',
-    placeAddress: 'Via Rocca Janula, Cassino (FR)',
+        'L\'Istituto Tecnico Industriale Statale "Ettore Majorana" di Cassino '
+        'è uno dei principali istituti tecnici della provincia di Frosinone. '
+        'Offre percorsi di studio in Informatica e Telecomunicazioni, Elettronica, '
+        'Meccanica e altri indirizzi tecnici, formando ogni anno centinaia di studenti '
+        'nel settore tecnologico e industriale.',
+    placeAddress: 'Via G. Di Biasio, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Rocca_Janula_Cassino.jpg/1280px-Rocca_Janula_Cassino.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Universit%C3%A0_di_Cassino.jpg/1280px-Universit%C3%A0_di_Cassino.jpg',
   ),
 ];
 
@@ -372,8 +371,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           SizedBox(width: 12),
           Text('Percorso completato!'),
         ]),
-        content: const Text(
-          'Hai scansionato tutti e 9 i punti del percorso '
+        content: Text(
+          'Hai scansionato tutti e ${kQrPoints.length} i punti del percorso '
           'dalla Stazione all\'ITIS. Ottimo lavoro!',
         ),
         actions: [
