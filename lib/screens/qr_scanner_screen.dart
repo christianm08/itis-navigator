@@ -82,21 +82,21 @@ const kQrPoints = [
     placeImageUrl:
         'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Cassino_-_Terme_romane.jpg/1280px-Cassino_-_Terme_romane.jpg',
   ),
+  // Punto 4: le coordinate si trovano in zona Museo Storico, non all'Abbazia
   QrPoint(
-    label: 'Abbazia di Montecassino',
+    label: 'Museo Storico della Battaglia',
     password: 'pass4',
     lat: 41.49571539606111,
     lng: 13.825049033341385,
-    placeName: 'Abbazia di Montecassino',
+    placeName: 'Museo Storico della Battaglia di Cassino',
     placeDescription:
-        'L\'Abbazia di Montecassino, fondata da San Benedetto da Norcia nel 529 d.C., '
-        'è uno dei monasteri più importanti e antichi del mondo occidentale. '
-        'Distrutta più volte e sempre ricostruita, è simbolo di resilienza e fede. '
-        'Dichiarata patrimonio storico e artistico, domina il Monte Cairo con vista '
-        'panoramica sulla Valle del Liri.',
-    placeAddress: 'Via Montecassino, Montecassino, Cassino (FR)',
+        'Il Museo Storico della Battaglia di Cassino racconta la storia delle quattro '
+        'Battaglie di Cassino (1943–1944), tra le più sanguinose della Seconda Guerra '
+        'Mondiale. Il museo conserva armi, documenti, fotografie e reperti bellici '
+        'che testimoniano il sacrificio di soldati di numerose nazioni.',
+    placeAddress: 'Via Rocca Janula, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Montecassino_abbey_may_2008.jpg/1280px-Montecassino_abbey_may_2008.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Museo_Storico_Cassino.jpg/1280px-Museo_Storico_Cassino.jpg',
   ),
   QrPoint(
     label: 'Cimitero Polacco',
@@ -114,19 +114,20 @@ const kQrPoints = [
         'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Polish_War_Cemetery_Cassino_2015_02.jpg/1280px-Polish_War_Cemetery_Cassino_2015_02.jpg',
   ),
   QrPoint(
-    label: 'Museo Storico della Battaglia',
+    label: 'Abbazia di Montecassino',
     password: 'pass6',
-    lat: 41.49229920533556,
-    lng: 13.815514635106842,
-    placeName: 'Museo Storico della Battaglia di Cassino',
+    lat: 41.50350,
+    lng: 13.81380,
+    placeName: 'Abbazia di Montecassino',
     placeDescription:
-        'Il Museo Storico della Battaglia di Cassino racconta la storia delle quattro '
-        'Battaglie di Cassino (1943–1944), tra le più sanguinose della Seconda Guerra '
-        'Mondiale. Il museo conserva armi, documenti, fotografie e reperti bellici '
-        'che testimoniano il sacrificio di soldati di numerose nazioni.',
-    placeAddress: 'Via Rocca Janula, Cassino (FR)',
+        'L\'Abbazia di Montecassino, fondata da San Benedetto da Norcia nel 529 d.C., '
+        'è uno dei monasteri più importanti e antichi del mondo occidentale. '
+        'Distrutta più volte e sempre ricostruita, è simbolo di resilienza e fede. '
+        'Dichiarata patrimonio storico e artistico, domina il Monte Cairo con vista '
+        'panoramica sulla Valle del Liri.',
+    placeAddress: 'Via Montecassino, Montecassino, Cassino (FR)',
     placeImageUrl:
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Museo_Storico_Cassino.jpg/1280px-Museo_Storico_Cassino.jpg',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Montecassino_abbey_may_2008.jpg/1280px-Montecassino_abbey_may_2008.jpg',
   ),
   QrPoint(
     label: 'Parco Folcara',
@@ -143,27 +144,12 @@ const kQrPoints = [
     placeImageUrl:
         'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Cassino_parco.jpg/1280px-Cassino_parco.jpg',
   ),
+  // Punto 8: le coordinate corrispondono all'Università di Cassino, non all'ITIS
   QrPoint(
-    label: 'ITIS E. Majorana',
+    label: 'Università di Cassino',
     password: 'pass8',
     lat: 41.46813009510813,
     lng: 13.831122747134286,
-    placeName: 'ITIS E. Majorana — Ingresso',
-    placeDescription:
-        'L\'Istituto Tecnico Industriale Statale "Ettore Majorana" di Cassino è uno '
-        'dei principali istituti tecnici della provincia di Frosinone. '
-        'Fondato nel XX secolo, offre corsi di Informatica, Elettronica, '
-        'Elettrotecnica e Meccanica. È intitolato al fisico siciliano Ettore Majorana, '
-        'scomparso misteriosamente nel 1938.',
-    placeAddress: 'Via Sant\'Angelo 2, Cassino (FR)',
-    placeImageUrl:
-        'https://itiscassino.edu.it/wp-content/uploads/2021/09/ITIS-Cassino.jpg',
-  ),
-  QrPoint(
-    label: 'Università di Cassino',
-    password: 'pass9',
-    lat: 41.4688109201981,
-    lng: 13.833891784111781,
     placeName: 'Università degli Studi di Cassino',
     placeDescription:
         'L\'Università degli Studi di Cassino e del Lazio Meridionale (UNICAS) '
@@ -174,9 +160,10 @@ const kQrPoints = [
     placeImageUrl:
         'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Universit%C3%A0_di_Cassino.jpg/1280px-Universit%C3%A0_di_Cassino.jpg',
   ),
+  // Punto 9 (ex "Rocca Janula"): le coordinate si trovano sotto Montecassino
   QrPoint(
     label: 'Rocca Janula',
-    password: 'pass10',
+    password: 'pass9',
     lat: 41.47767602497951,
     lng: 13.826309190301341,
     placeName: 'Rocca Janula',
@@ -386,7 +373,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           Text('Percorso completato!'),
         ]),
         content: const Text(
-          'Hai scansionato tutti e 10 i punti del percorso '
+          'Hai scansionato tutti e 9 i punti del percorso '
           'dalla Stazione all\'ITIS. Ottimo lavoro!',
         ),
         actions: [
