@@ -7,10 +7,11 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/theme_provider.dart';
 
+// Coordinate fisse per i punti di partenza e arrivo del percorso
 const _kStazione = LatLng(41.485302, 13.831859);
 const _kItis     = LatLng(41.468840, 13.834258);
 
-// Dark map style (same as map_navigation_screen)
+// Stile mappa scura, usato quando il tema dell'app è dark
 const String _darkMapStyle = r'['
   r'{"elementType":"geometry","stylers":[{"color":"#212121"}]},'
   r'{"elementType":"labels.icon","stylers":[{"visibility":"off"}]},'
@@ -34,8 +35,8 @@ const String _darkMapStyle = r'['
   r'{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}'
   r']';
 
-/// I punti QR del percorso — ogni punto corrisponde a un LUOGO di interesse
-/// di Cassino, non alla via in cui si trova.
+/// Lista dei punti QR del percorso da Stazione a ITIS.
+/// Ogni punto corrisponde a un luogo di interesse di Cassino.
 const kQrPoints = [
   QrPoint(
     label: 'Piazza Garibaldi',
@@ -178,21 +179,24 @@ const kQrPoints = [
   ),
 ];
 
+// Raggio in metri entro cui l'utente è considerato "vicino" a un punto QR
 const double _kScanRadius = 200.0;
+
+// Chiave SharedPreferences per salvare i punti sbloccati
 const _kPrefsKey = 'qr_unlocked_points';
 
 // ─── Modello ────────────────────────────────────────────────────────────────────────────────
 
+/// Rappresenta un singolo punto QR del percorso.
 class QrPoint {
-  final String label;
-  final String password;
+  final String label;           // Nome visualizzato nella UI
+  final String password;        // Stringa attesa dal QR code
   final double lat;
   final double lng;
-  final String placeName;
+  final String placeName;       // Titolo esteso del luogo
   final String placeDescription;
   final String placeAddress;
-  /// URL remota dell'immagine del luogo (usata con Image.network)
-  final String placeImageUrl;
+  final String placeImageUrl;   // URL remota immagine Wikimedia
 
   const QrPoint({
     required this.label,
@@ -204,9 +208,11 @@ class QrPoint {
     this.placeAddress = '',
     this.placeImageUrl = '',
   });
+
+  /// Conversione rapida a LatLng per Google Maps
   LatLng get latLng => LatLng(lat, lng);
 
-  /// Retrocompatibilità: campo usato in map_navigation_screen
+  /// Retrocompatibilità con map_navigation_screen (asset locali non usati)
   String get placeImageAsset => '';
 }
 
@@ -220,32 +226,37 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  Position?   _position;
+  Position?   _position;       // Posizione GPS corrente dell'utente
   bool        _loadingGps = true;
-  Set<String> _unlocked = {};
+  Set<String> _unlocked = {};  // Label dei punti già sbloccati (da SharedPreferences)
   bool        _loadingPrefs = true;
 
   GoogleMapController? _mapController;
+
+  // Centro di Cassino usato come fallback se il GPS non è disponibile
   static const _cassinoCenter = LatLng(41.476, 13.829);
 
   @override
   void initState() {
     super.initState();
-    _loadSaved();
-    _fetchPosition();
+    _loadSaved();    // Carica i punti sbloccati salvati
+    _fetchPosition(); // Avvia il rilevamento GPS
   }
 
+  /// Legge da SharedPreferences i punti già sbloccati in sessioni precedenti.
   Future<void> _loadSaved() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getStringList(_kPrefsKey) ?? [];
     if (mounted) setState(() { _unlocked = Set.from(saved); _loadingPrefs = false; });
   }
 
+  /// Persiste su SharedPreferences i punti attualmente sbloccati.
   Future<void> _saveUnlocked() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_kPrefsKey, _unlocked.toList());
   }
 
+  /// Mostra un dialogo di conferma e, se confermato, azzera il progresso.
   Future<void> _resetProgress() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -269,6 +280,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
+  /// Richiede il permesso GPS e aggiorna la posizione corrente.
   Future<void> _fetchPosition() async {
     setState(() => _loadingGps = true);
     try {
@@ -287,44 +299,63 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
+  /// Calcola la distanza in metri tra l'utente e il punto [p].
+  /// Ritorna null se il GPS non è disponibile.
   double? _distanceTo(QrPoint p) {
     if (_position == null) return null;
     return Geolocator.distanceBetween(
         _position!.latitude, _position!.longitude, p.lat, p.lng);
   }
 
+  /// True se l'utente si trova entro [_kScanRadius] metri dal punto [p].
   bool _isNearby(QrPoint p) {
     final d = _distanceTo(p);
     return d != null && d <= _kScanRadius;
   }
 
+  /// Costruisce i [Marker] da mostrare sulla mappa Google.
+  ///
+  /// Colori usati:
+  /// - 🟢 Verde   → Stazione (partenza)
+  /// - 🔵 Blu     → ITIS (arrivo)
+  /// - 🟢 Verde   → Punto QR già sbloccato
+  /// - 🔴 Rosso   → Punto QR non ancora sbloccato
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
+
+    // Marker stazione di partenza
     markers.add(Marker(
       markerId: const MarkerId('stazione'),
       position: _kStazione,
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       infoWindow: const InfoWindow(title: 'Stazione Ferroviaria', snippet: 'Partenza'),
     ));
+
+    // Marker ITIS di arrivo
     markers.add(Marker(
       markerId: const MarkerId('itis'),
       position: _kItis,
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       infoWindow: const InfoWindow(title: 'ITIS E. Majorana', snippet: 'Arrivo'),
     ));
+
+    // Marker per ciascun punto QR del percorso
     for (final p in kQrPoints) {
       final done = _unlocked.contains(p.label);
+
       markers.add(Marker(
         markerId: MarkerId('qr_${p.label}'),
         position: p.latLng,
+        // Verde se sbloccato, rosso se ancora da scansionare
         icon: BitmapDescriptor.defaultMarkerWithHue(
-          done ? BitmapDescriptor.hueViolet : BitmapDescriptor.hueYellow,
+          done ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueRed,
         ),
         infoWindow: InfoWindow(
           title: p.label,
-          snippet: done ? '✅ Sbloccato' : 'Tocca poi premi "Scan" nella lista',
+          snippet: done ? '✅ Sbloccato' : '🔴 Da scansionare',
         ),
         onTap: () {
+          // Se non ancora sbloccato, centra la mappa sul punto toccato
           if (!done) {
             _mapController?.animateCamera(
               CameraUpdate.newCameraPosition(CameraPosition(target: p.latLng, zoom: 17)),
@@ -336,11 +367,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     return markers;
   }
 
+  /// Applica lo stile scuro alla mappa se il tema dell'app è dark.
   void _applyMapStyle(GoogleMapController c) {
     final isDark = context.read<ThemeProvider>().isDark;
     c.setMapStyle(isDark ? _darkMapStyle : null);
   }
 
+  /// Apre la pagina della fotocamera QR per il punto [point].
   Future<void> _openScanner(QrPoint point) async {
     await Navigator.push<void>(
       context,
@@ -351,6 +384,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           onUnlock: (label) {
             setState(() => _unlocked.add(label));
             _saveUnlocked();
+            // Se tutti i punti sono sbloccati mostra il dialogo di completamento
             if (_unlocked.length == kQrPoints.length) {
               Future.delayed(const Duration(milliseconds: 300), _showCompletionDialog);
             }
@@ -360,6 +394,23 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     );
   }
 
+  /// Mostra il bottom sheet con le informazioni del luogo [point]
+  /// senza sbloccare il punto (modalità "anteprima" per utenti vicini).
+  void _showPlaceInfo(QrPoint point) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PlaceInfoSheet(
+        point: point,
+        // Mostra semplicemente "Chiudi" senza sbloccare il punto
+        onContinue: () => Navigator.pop(context),
+        previewOnly: true,
+      ),
+    );
+  }
+
+  /// Mostra il dialogo di completamento percorso quando tutti i punti sono sbloccati.
   void _showCompletionDialog() {
     showDialog(
       context: context,
@@ -389,10 +440,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+
+    // Usa la posizione GPS se disponibile, altrimenti centra su Cassino
     final camPos = _position != null
         ? LatLng(_position!.latitude, _position!.longitude)
         : _cassinoCenter;
 
+    // Mostra uno spinner finché non sono caricati i dati salvati
     if (_loadingPrefs) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -401,6 +455,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
+          // ── App bar collassabile con contatore progresso ──
           SliverAppBar(
             expandedHeight: 130,
             pinned: true,
@@ -427,6 +482,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
           ),
+
+          // ── Barra progresso + banner GPS ──
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
@@ -457,6 +514,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ]),
             ),
           ),
+
+          // ── Mappa Google ──
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -480,17 +539,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
           ),
+
+          // ── Legenda colori mappa ──
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 10, 24, 4),
               child: Wrap(spacing: 16, runSpacing: 4, children: [
-                _LegendDot(color: Colors.green.shade600, label: 'Stazione'),
-                _LegendDot(color: Colors.blue.shade600, label: 'ITIS'),
-                _LegendDot(color: Colors.amber.shade700, label: 'Da scansionare'),
-                _LegendDot(color: Colors.purple.shade400, label: 'Sbloccato'),
+                _LegendDot(color: Colors.green.shade600, label: 'Stazione / Sbloccato'),
+                _LegendDot(color: Colors.blue.shade600, label: 'ITIS (arrivo)'),
+                _LegendDot(color: Colors.red.shade600, label: 'Da scansionare'),
               ]),
             ),
           ),
+
+          // ── Lista card punti QR ──
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
             sliver: SliverList(
@@ -513,6 +575,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             CameraPosition(target: p.latLng, zoom: 17)),
                       ),
                       onScan: () => _openScanner(p),
+                      // Callback per mostrare le info senza scansionare
+                      onInfo: () => _showPlaceInfo(p),
                     ),
                   );
                 },
@@ -548,9 +612,9 @@ class _QrCameraPageState extends State<QrCameraPage>
     with WidgetsBindingObserver {
   MobileScannerController? _ctrl;
   StreamSubscription<Object?>? _subscription;
-  bool _processing = false;
+  bool _processing = false; // True mentre viene verificato un QR appena letto
   String? _errorMsg;
-  bool _started = false;
+  bool _started = false;    // True dopo che la fotocamera è avviata correttamente
 
   @override
   void initState() {
@@ -559,6 +623,7 @@ class _QrCameraPageState extends State<QrCameraPage>
     _startCamera();
   }
 
+  /// Inizializza e avvia il controller della fotocamera.
   void _startCamera() {
     _ctrl = MobileScannerController(
       detectionSpeed: DetectionSpeed.noDuplicates,
@@ -579,20 +644,23 @@ class _QrCameraPageState extends State<QrCameraPage>
     });
   }
 
+  /// Callback invocata ogni volta che lo scanner rileva un barcode.
   void _onBarcode(BarcodeCapture capture) {
-    if (_processing) return;
+    if (_processing) return; // Ignora nuovi scan mentre si elabora il precedente
     final raw = capture.barcodes.firstOrNull?.rawValue?.trim();
     if (raw == null || raw.isEmpty) return;
 
     setState(() { _processing = true; _errorMsg = null; });
     _ctrl?.stop();
 
+    // Cerca il punto corrispondente alla password letta dal QR
     final matched = widget.points.cast<QrPoint?>().firstWhere(
       (p) => p!.password.trim() == raw,
       orElse: () => null,
     );
 
     if (matched == null) {
+      // QR non appartenente al percorso
       setState(() {
         _errorMsg = 'QR non riconosciuto. Assicurati di scansionare '
             'uno dei QR code del percorso.';
@@ -603,6 +671,7 @@ class _QrCameraPageState extends State<QrCameraPage>
     }
 
     if (widget.unlockedLabels.contains(matched.label)) {
+      // Punto già sbloccato in precedenza
       setState(() {
         _errorMsg = '${matched.label} è già stato sbloccato!';
         _processing = false;
@@ -611,9 +680,11 @@ class _QrCameraPageState extends State<QrCameraPage>
       return;
     }
 
+    // QR valido e non ancora sbloccato: mostra le info del luogo
     _showSuccess(matched);
   }
 
+  /// Mostra il bottom sheet con le informazioni del luogo appena sbloccato.
   void _showSuccess(QrPoint point) {
     showModalBottomSheet<void>(
       context: context,
@@ -623,15 +694,17 @@ class _QrCameraPageState extends State<QrCameraPage>
       backgroundColor: Colors.transparent,
       builder: (_) => _PlaceInfoSheet(
         point: point,
+        previewOnly: false, // Modalità sblocco: il bottone registra il punto
         onContinue: () {
           widget.onUnlock(point.label);
-          Navigator.pop(context);
-          Navigator.pop(context);
+          Navigator.pop(context); // Chiude il bottom sheet
+          Navigator.pop(context); // Torna alla lista punti
         },
       ),
     );
   }
 
+  /// Gestisce la pausa/ripresa della fotocamera al cambio di stato dell'app.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final ctrl = _ctrl;
@@ -674,6 +747,7 @@ class _QrCameraPageState extends State<QrCameraPage>
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
+          // Bottone torcia: visibile solo quando la fotocamera è attiva
           if (_ctrl != null)
             ValueListenableBuilder(
               valueListenable: _ctrl!,
@@ -694,6 +768,7 @@ class _QrCameraPageState extends State<QrCameraPage>
         ],
       ),
       body: Stack(children: [
+        // ── Preview fotocamera o messaggio errore ──
         if (_ctrl != null && _errorMsg == null)
           MobileScanner(controller: _ctrl!)
         else if (_errorMsg != null)
@@ -719,6 +794,7 @@ class _QrCameraPageState extends State<QrCameraPage>
             ),
           )
         else
+          // Spinner di avvio fotocamera
           const Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               CircularProgressIndicator(color: Colors.white),
@@ -726,6 +802,8 @@ class _QrCameraPageState extends State<QrCameraPage>
               Text('Avvio fotocamera...', style: TextStyle(color: Colors.white70)),
             ]),
           ),
+
+        // ── Mirino di scansione sovrapposto alla preview ──
         if (_ctrl != null && _errorMsg == null)
           Center(
             child: CustomPaint(
@@ -733,6 +811,8 @@ class _QrCameraPageState extends State<QrCameraPage>
               child: const SizedBox(width: 260, height: 260),
             ),
           ),
+
+        // ── Istruzioni e messaggi di errore in alto ──
         Positioned(
           top: 32,
           left: 20,
@@ -763,6 +843,8 @@ class _QrCameraPageState extends State<QrCameraPage>
             ],
           ]),
         ),
+
+        // ── Overlay di caricamento durante la verifica del QR ──
         if (_processing)
           Container(
             color: Colors.black45,
@@ -789,6 +871,7 @@ class _QrCameraPageState extends State<QrCameraPage>
 
 // ─── Legenda ────────────────────────────────────────────────────────────────────────────────
 
+/// Singolo elemento della legenda mappa (pallino colorato + etichetta).
 class _LegendDot extends StatelessWidget {
   final Color color;
   final String label;
@@ -808,6 +891,7 @@ class _LegendDot extends StatelessWidget {
 
 // ─── Banner GPS ─────────────────────────────────────────────────────────────────────────
 
+/// Banner che mostra lo stato del GPS (caricamento / non disponibile / attivo).
 class _GpsStatusBanner extends StatelessWidget {
   final bool loading;
   final Position? position;
@@ -822,6 +906,7 @@ class _GpsStatusBanner extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     if (loading) {
+      // Stato: rilevamento in corso
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
@@ -838,6 +923,7 @@ class _GpsStatusBanner extends StatelessWidget {
       );
     }
     if (position == null) {
+      // Stato: GPS non disponibile o permesso negato
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
@@ -867,6 +953,7 @@ class _GpsStatusBanner extends StatelessWidget {
         ]),
       );
     }
+    // Stato: GPS attivo con precisione
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -892,14 +979,21 @@ class _GpsStatusBanner extends StatelessWidget {
 
 // ─── Card punto ─────────────────────────────────────────────────────────────────────────────
 
+/// Card che rappresenta un singolo punto QR nella lista.
+///
+/// Stati visivi:
+/// - Verde con bordo verde → punto già sbloccato
+/// - Bordo primario evidenziato → utente nelle vicinanze, pronto per scansionare
+/// - Stile neutro → punto distante
 class _QrPointCard extends StatelessWidget {
   final QrPoint point;
   final int index;
-  final double? distance;
-  final bool isNearby;
-  final bool isUnlocked;
-  final VoidCallback onLocate;
-  final VoidCallback onScan;
+  final double? distance;   // Distanza in metri, null se GPS non disponibile
+  final bool isNearby;      // True se l'utente è entro il raggio di scansione
+  final bool isUnlocked;    // True se il punto è già stato sbloccato
+  final VoidCallback onLocate; // Centra la mappa su questo punto
+  final VoidCallback onScan;   // Apre la fotocamera QR
+  final VoidCallback onInfo;   // Mostra info del luogo senza scansionare
 
   const _QrPointCard({
     required this.point,
@@ -909,8 +1003,10 @@ class _QrPointCard extends StatelessWidget {
     required this.isUnlocked,
     required this.onLocate,
     required this.onScan,
+    required this.onInfo,
   });
 
+  /// Formatta la distanza in metri o km.
   String _fmt(double d) =>
       d < 1000 ? '${d.round()} m' : '${(d / 1000).toStringAsFixed(1)} km';
 
@@ -920,6 +1016,7 @@ class _QrPointCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
+    // Colori del bordo e dell'icona in base allo stato
     Color borderColor;
     Color iconBg;
     Color iconTextColor;
@@ -946,6 +1043,7 @@ class _QrPointCard extends StatelessWidget {
           : Colors.grey.shade500;
     }
 
+    // Testo di stato mostrato sotto il nome del punto
     final stateLabel = isUnlocked
         ? '✅ Completato'
         : isNearby
@@ -972,6 +1070,7 @@ class _QrPointCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
         child: Row(children: [
+          // Pallino con numero o check
           Container(
             width: 42, height: 42,
             decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
@@ -985,6 +1084,8 @@ class _QrPointCard extends StatelessWidget {
                         color: iconTextColor)),
           ),
           const SizedBox(width: 14),
+
+          // Nome e stato del punto
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(point.label,
@@ -1001,6 +1102,8 @@ class _QrPointCard extends StatelessWidget {
                   )),
             ]),
           ),
+
+          // Bottone: centra mappa sul punto
           IconButton(
             icon: Icon(Icons.map_rounded, color: cs.primary, size: 22),
             onPressed: onLocate,
@@ -1008,7 +1111,26 @@ class _QrPointCard extends StatelessWidget {
             padding: const EdgeInsets.all(8),
             constraints: const BoxConstraints(),
           ),
+
+          // Bottone info: mostra descrizione del luogo (solo se vicino o sbloccato)
+          if (isNearby || isUnlocked) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              icon: Icon(Icons.info_outline_rounded,
+                  color: isUnlocked
+                      ? (isDark ? Colors.green.shade400 : Colors.green.shade600)
+                      : cs.primary,
+                  size: 22),
+              onPressed: onInfo,
+              tooltip: 'Informazioni sul luogo',
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(),
+            ),
+          ],
+
           const SizedBox(width: 4),
+
+          // Bottone scan o check se già completato
           if (!isUnlocked)
             ElevatedButton.icon(
               onPressed: onScan,
@@ -1048,6 +1170,7 @@ class _QrPointCard extends StatelessWidget {
 
 // ─── Painter mirino ────────────────────────────────────────────────────────────────────
 
+/// Disegna il mirino a quattro angoli sovrapposto alla preview della fotocamera.
 class _ScannerOverlayPainter extends CustomPainter {
   final Color borderColor;
   const _ScannerOverlayPainter({required this.borderColor});
@@ -1060,15 +1183,26 @@ class _ScannerOverlayPainter extends CustomPainter {
       ..strokeWidth = 4.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
+
     final r = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    // Angolo in alto a sinistra
     canvas.drawLine(r.topLeft, r.topLeft + const Offset(cornerLen, 0), paint);
     canvas.drawLine(r.topLeft, r.topLeft + const Offset(0, cornerLen), paint);
+
+    // Angolo in alto a destra
     canvas.drawLine(r.topRight, r.topRight + const Offset(-cornerLen, 0), paint);
     canvas.drawLine(r.topRight, r.topRight + const Offset(0, cornerLen), paint);
+
+    // Angolo in basso a sinistra
     canvas.drawLine(r.bottomLeft, r.bottomLeft + const Offset(cornerLen, 0), paint);
     canvas.drawLine(r.bottomLeft, r.bottomLeft + const Offset(0, -cornerLen), paint);
+
+    // Angolo in basso a destra
     canvas.drawLine(r.bottomRight, r.bottomRight + const Offset(-cornerLen, 0), paint);
     canvas.drawLine(r.bottomRight, r.bottomRight + const Offset(0, -cornerLen), paint);
+
+    // Linea orizzontale centrale (guida di mira)
     final linePaint = Paint()
       ..color = borderColor.withValues(alpha: 0.45)
       ..strokeWidth = 1.8;
@@ -1082,10 +1216,20 @@ class _ScannerOverlayPainter extends CustomPainter {
 
 // ─── Bottom Sheet info luogo ────────────────────────────────────────────────────────────
 
+/// Bottom sheet trascinabile che mostra nome, immagine e descrizione di un luogo.
+///
+/// [previewOnly] = true  → bottone "Chiudi" (anteprima senza sbloccare il punto)
+/// [previewOnly] = false → bottone "Continua" che registra il punto come sbloccato
 class _PlaceInfoSheet extends StatelessWidget {
   final QrPoint point;
   final VoidCallback onContinue;
-  const _PlaceInfoSheet({required this.point, required this.onContinue});
+  final bool previewOnly; // Se true non sblocca il punto, mostra solo info
+
+  const _PlaceInfoSheet({
+    required this.point,
+    required this.onContinue,
+    this.previewOnly = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1106,6 +1250,7 @@ class _PlaceInfoSheet extends StatelessWidget {
         ),
         child: Column(
           children: [
+            // Handle di trascinamento
             Padding(
               padding: const EdgeInsets.only(top: 12, bottom: 4),
               child: Container(
@@ -1120,41 +1265,56 @@ class _PlaceInfoSheet extends StatelessWidget {
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 children: [
+                  // Badge di stato: sbloccato o anteprima
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.green.shade900.withValues(alpha: 0.4)
-                            : Colors.green.shade50,
+                        color: previewOnly
+                            ? (isDark
+                                ? Colors.blue.shade900.withValues(alpha: 0.4)
+                                : Colors.blue.shade50)
+                            : (isDark
+                                ? Colors.green.shade900.withValues(alpha: 0.4)
+                                : Colors.green.shade50),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: isDark
-                                ? Colors.green.shade600
-                                : Colors.green.shade300),
+                            color: previewOnly
+                                ? (isDark ? Colors.blue.shade600 : Colors.blue.shade300)
+                                : (isDark ? Colors.green.shade600 : Colors.green.shade300)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.check_circle_rounded,
-                              color: isDark
-                                  ? Colors.green.shade400
-                                  : Colors.green.shade600,
-                              size: 18),
+                          Icon(
+                            previewOnly
+                                ? Icons.info_outline_rounded
+                                : Icons.check_circle_rounded,
+                            color: previewOnly
+                                ? (isDark ? Colors.blue.shade400 : Colors.blue.shade600)
+                                : (isDark ? Colors.green.shade400 : Colors.green.shade600),
+                            size: 18,
+                          ),
                           const SizedBox(width: 6),
-                          Text('${point.label} sbloccato!',
-                              style: TextStyle(
-                                  color: isDark
-                                      ? Colors.green.shade300
-                                      : Colors.green.shade700,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13)),
+                          Text(
+                            previewOnly
+                                ? 'Sei vicino a ${point.label}'
+                                : '${point.label} sbloccato!',
+                            style: TextStyle(
+                                color: previewOnly
+                                    ? (isDark ? Colors.blue.shade300 : Colors.blue.shade700)
+                                    : (isDark ? Colors.green.shade300 : Colors.green.shade700),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13),
+                          ),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 18),
+
+                  // Immagine del luogo con gestione loading/errore
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: hasImage
@@ -1175,10 +1335,14 @@ class _PlaceInfoSheet extends StatelessWidget {
                         : _buildPlaceholder(theme),
                   ),
                   const SizedBox(height: 20),
+
+                  // Nome del luogo
                   Text(name,
                       style: theme.textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
+
+                  // Indirizzo con icona
                   if (point.placeAddress.isNotEmpty) ...[
                     Row(children: [
                       Icon(Icons.location_on_outlined,
@@ -1193,8 +1357,11 @@ class _PlaceInfoSheet extends StatelessWidget {
                     ]),
                     const SizedBox(height: 16),
                   ],
+
                   Divider(color: cs.onSurface.withValues(alpha: 0.1), height: 1),
                   const SizedBox(height: 16),
+
+                  // Descrizione estesa del luogo
                   Text(
                     point.placeDescription.isNotEmpty
                         ? point.placeDescription
@@ -1206,6 +1373,8 @@ class _PlaceInfoSheet extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Bottone fisso in fondo: "Chiudi" in anteprima, "Continua" dopo scan
             Container(
               padding: EdgeInsets.only(
                   left: 24, right: 24, top: 12,
@@ -1222,8 +1391,10 @@ class _PlaceInfoSheet extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: onContinue,
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('Continua'),
+                  icon: Icon(previewOnly
+                      ? Icons.close_rounded
+                      : Icons.arrow_forward_rounded),
+                  label: Text(previewOnly ? 'Chiudi' : 'Continua'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -1238,6 +1409,7 @@ class _PlaceInfoSheet extends StatelessWidget {
     );
   }
 
+  /// Skeleton animato mostrato durante il caricamento dell'immagine.
   Widget _buildImageSkeleton(ThemeData theme) {
     return Container(
       height: 200,
@@ -1255,6 +1427,7 @@ class _PlaceInfoSheet extends StatelessWidget {
     );
   }
 
+  /// Placeholder mostrato quando l'immagine non è disponibile o non si carica.
   Widget _buildPlaceholder(ThemeData theme) {
     return Container(
       height: 200, width: double.infinity,
