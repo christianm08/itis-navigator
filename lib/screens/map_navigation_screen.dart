@@ -36,6 +36,9 @@ const String _darkMapStyle = r'['
   r'{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}'
   r']';
 
+/// Raggio in metri entro cui scatta la notifica di prossimità.
+const double _kPoiNotifyRadius = 80.0;
+
 class MapNavigationScreen extends StatefulWidget {
   final Destination destination;
   const MapNavigationScreen({super.key, required this.destination});
@@ -61,6 +64,15 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   int _lastRoutePointsHash = 0;
   LatLng? _lastCameraTarget;
   static const double _cameraUpdateThreshold = 2.0;
+
+  // ── Prossimità POI ────────────────────────────────────────────────────────
+  /// Punti già notificati in questa sessione (evita spam).
+  final Set<String> _notifiedPoi = {};
+  /// Punto attualmente mostrato nel banner (null = banner nascosto).
+  QrPoint? _nearbyPoi;
+  late final AnimationController _poiBannerCtrl;
+  late final Animation<Offset> _poiBannerSlide;
+  late final Animation<double> _poiBannerFade;
 
   late final AnimationController _enterCtrl;
   late final Animation<double> _topBarFade;
@@ -133,6 +145,15 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
             CurvedAnimation(
                 parent: _enterCtrl,
                 curve: const Interval(0.15, 0.65, curve: Curves.easeOutCubic)));
+
+    // Animazione banner POI (sale dal basso)
+    _poiBannerCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 380));
+    _poiBannerSlide =
+        Tween<Offset>(begin: const Offset(0, 1.4), end: Offset.zero).animate(
+            CurvedAnimation(parent: _poiBannerCtrl, curve: Curves.easeOutCubic));
+    _poiBannerFade = CurvedAnimation(
+        parent: _poiBannerCtrl, curve: Curves.easeOut);
   }
 
   Future<void> _initializeNavigation() async {
@@ -174,6 +195,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     if (_usingFallbackPosition) setState(() => _usingFallbackPosition = false);
     await navService.updatePosition(position);
     _rebuildMapData();
+    _checkPoiProximity(position);
     if (_followUser && _mapController != null) {
       final newTarget = LatLng(position.latitude, position.longitude);
       final last = _lastCameraTarget;
@@ -189,6 +211,36 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       _mapController!.animateCamera(CameraUpdate.newCameraPosition(
           CameraPosition(target: newTarget, zoom: 18, bearing: bearing, tilt: 45)));
     }
+  }
+
+  // ── Logica prossimità POI ────────────────────────────────────────────────
+  void _checkPoiProximity(Position position) {
+    for (final poi in kQrPoints) {
+      if (_notifiedPoi.contains(poi.label)) continue;
+      final dist = Geolocator.distanceBetween(
+          position.latitude, position.longitude, poi.lat, poi.lng);
+      if (dist <= _kPoiNotifyRadius) {
+        _notifiedPoi.add(poi.label);
+        _showPoiBanner(poi);
+        break; // un banner alla volta
+      }
+    }
+  }
+
+  void _showPoiBanner(QrPoint poi) {
+    if (!mounted) return;
+    setState(() => _nearbyPoi = poi);
+    _poiBannerCtrl.forward(from: 0);
+    // Auto-dismiss dopo 6 secondi
+    Future.delayed(const Duration(seconds: 6), () {
+      if (mounted && _nearbyPoi?.label == poi.label) _dismissPoiBanner();
+    });
+  }
+
+  void _dismissPoiBanner() {
+    _poiBannerCtrl.reverse().then((_) {
+      if (mounted) setState(() => _nearbyPoi = null);
+    });
   }
 
   void _rebuildMapData() {
@@ -304,7 +356,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     _rebuildMapData();
   }
 
-  /// Applica lo stile dark alla mappa se il tema è scuro.
   void _applyMapStyle(GoogleMapController controller) {
     final isDark = context.read<ThemeProvider>().isDark;
     if (isDark) {
@@ -324,7 +375,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
         ? LatLng(position.latitude, position.longitude)
         : _cassinoCenter;
 
-    // Aggiorna stile mappa se il tema cambia a runtime
     if (_mapController != null) _applyMapStyle(_mapController!);
 
     return Scaffold(
@@ -613,6 +663,28 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
             ),
           ),
 
+          // ── Banner prossimità POI ────────────────────────────────────────
+          if (_nearbyPoi != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: MediaQuery.of(context).padding.bottom + 170,
+              child: SlideTransition(
+                position: _poiBannerSlide,
+                child: FadeTransition(
+                  opacity: _poiBannerFade,
+                  child: _PoiProximityBanner(
+                    poi: _nearbyPoi!,
+                    onTap: () {
+                      _dismissPoiBanner();
+                      _showPlaceSheet(_nearbyPoi!);
+                    },
+                    onDismiss: _dismissPoiBanner,
+                  ),
+                ),
+              ),
+            ),
+
           // Bottom card
           Positioned(
             left: 16, right: 16, bottom: 16,
@@ -799,10 +871,107 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   @override
   void dispose() {
     _enterCtrl.dispose();
+    _poiBannerCtrl.dispose();
     context.read<LocationService>().removeListener(_handleLocationUpdate);
     context.read<NavigationService>().stopNavigation();
     _mapController?.dispose();
     super.dispose();
+  }
+}
+
+// ── Banner prossimità POI ────────────────────────────────────────────────────
+
+class _PoiProximityBanner extends StatelessWidget {
+  final QrPoint poi;
+  final VoidCallback onTap;
+  final VoidCallback onDismiss;
+
+  const _PoiProximityBanner({
+    required this.poi,
+    required this.onTap,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: cs.primary.withValues(alpha: 0.35),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: cs.primary.withValues(alpha: 0.18),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.place_rounded, color: cs.primary, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Punto di interesse vicino',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.primary,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      poi.placeName.isNotEmpty ? poi.placeName : poi.label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Tocca per scoprire di più →',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close_rounded,
+                    size: 20, color: cs.onSurface.withValues(alpha: 0.4)),
+                onPressed: onDismiss,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
