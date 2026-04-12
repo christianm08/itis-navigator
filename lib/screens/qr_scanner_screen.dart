@@ -36,39 +36,124 @@ const String _darkMapStyle = r'['
 
 const kQrPoints = [
   QrPoint(
-    label: 'Punto 1',
+    label: 'Piazza Giuseppe Garibaldi',
     password: 'pass1',
-    lat: 41.482421,
-    lng: 13.825648,
-    placeName: 'Nome del luogo 1',
-    placeDescription: 'Descrizione del primo punto di interesse lungo il '
-        'percorso dalla Stazione all\'ITIS. Aggiungi qui le informazioni '
-        'storiche, curiosità o indicazioni utili.',
-    placeAddress: 'Via Example 1, Cassino (FR)',
+    lat: 41.48483058959342,
+    lng: 13.83213562732474,
+    placeName: 'Piazza Giuseppe Garibaldi',
+    placeDescription: 'Piazza centrale di Cassino, dedicata a Giuseppe Garibaldi, '
+        'eroe del Risorgimento italiano. Punto di riferimento storico e sociale '
+        'della città, circondata da edifici storici e attività commerciali.',
+    placeAddress: 'Piazza Giuseppe Garibaldi, Cassino (FR)',
     placeImageAsset: '',
   ),
   QrPoint(
-    label: 'Punto 2',
+    label: 'Via Crocifisso',
     password: 'pass2',
-    lat: 41.475818,
-    lng: 13.828921,
-    placeName: 'Nome del luogo 2',
-    placeDescription: 'Descrizione del secondo punto di interesse. '
-        'Puoi inserire informazioni sul quartiere, punti di riferimento '
-        'o qualsiasi dettaglio utile per gli studenti.',
-    placeAddress: 'Via Example 2, Cassino (FR)',
+    lat: 41.48402685411911,
+    lng: 13.824518154061039,
+    placeName: 'Via Crocifisso',
+    placeDescription: 'Via Crocifisso è una delle strade storiche del centro di Cassino. '
+        'Il nome richiama la tradizione religiosa del territorio, con riferimenti '
+        'alle chiese e ai luoghi di culto presenti nella zona.',
+    placeAddress: 'Via Crocifisso, Cassino (FR)',
     placeImageAsset: '',
   ),
   QrPoint(
-    label: 'Punto 3',
+    label: 'Via delle Terme',
     password: 'pass3',
-    lat: 41.474282,
-    lng: 13.828943,
-    placeName: 'Nome del luogo 3',
-    placeDescription: 'Descrizione del terzo punto di interesse, '
-        'l\'ultimo prima di arrivare all\'ITIS. Aggiungi qui le '
-        'informazioni che ritieni più utili.',
-    placeAddress: 'Via Example 3, Cassino (FR)',
+    lat: 41.48320703366475,
+    lng: 13.831191489793465,
+    placeName: 'Via delle Terme',
+    placeDescription: 'Via delle Terme deve il suo nome alle antiche terme romane '
+        'presenti nell\'area di Cassino, testimonianza del ricco passato '
+        'romano della città un tempo chiamata Casinum.',
+    placeAddress: 'Via delle Terme, Cassino (FR)',
+    placeImageAsset: '',
+  ),
+  QrPoint(
+    label: 'Via Montecassino 1',
+    password: 'pass4',
+    lat: 41.49571539606111,
+    lng: 13.825049033341385,
+    placeName: 'Via Montecassino (zona nord)',
+    placeDescription: 'Tratto nord di Via Montecassino, la strada che collega '
+        'Cassino all\'omonima abbazia benedettina. L\'Abbazia di Montecassino, '
+        'fondata da San Benedetto da Norcia nel 529 d.C., è uno dei monasteri '
+        'più importanti al mondo e simbolo della città.',
+    placeAddress: 'Via Montecassino, Cassino (FR)',
+    placeImageAsset: '',
+  ),
+  QrPoint(
+    label: 'Via Sant\'Angelo 1',
+    password: 'pass5',
+    lat: 41.47781906390782,
+    lng: 13.826406429123592,
+    placeName: 'Via Sant\'Angelo (zona 1)',
+    placeDescription: 'Primo tratto di Via Sant\'Angelo, una delle arterie principali '
+        'del quartiere residenziale di Cassino. Il nome richiama l\'antica '
+        'denominazione religiosa del territorio.',
+    placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
+    placeImageAsset: '',
+  ),
+  QrPoint(
+    label: 'Via Montecassino 2',
+    password: 'pass6',
+    lat: 41.49229920533556,
+    lng: 13.815514635106842,
+    placeName: 'Via Montecassino (zona sud)',
+    placeDescription: 'Tratto sud di Via Montecassino. Da qui si ha una delle viste '
+        'più suggestive verso l\'Abbazia di Montecassino arroccata sul monte. '
+        'La strada percorre le pendici del Monte Cairo verso l\'abbazia.',
+    placeAddress: 'Via Montecassino, Cassino (FR)',
+    placeImageAsset: '',
+  ),
+  QrPoint(
+    label: 'Pista Ciclabile Ausonia',
+    password: 'pass7',
+    lat: 41.472449200349764,
+    lng: 13.828219859628286,
+    placeName: 'Pista Ciclabile — Via Ausonia',
+    placeDescription: 'Tratto della pista ciclabile che collega Via Ausonia al '
+        'Sentiero Mastronardi. Un percorso verde pensato per la mobilità '
+        'sostenibile, immerso nel verde urbano di Cassino.',
+    placeAddress: 'Via Ausonia / Sentiero Mastronardi, Cassino (FR)',
+    placeImageAsset: '',
+  ),
+  QrPoint(
+    label: 'Via Sant\'Angelo 2',
+    password: 'pass8',
+    lat: 41.46813009510813,
+    lng: 13.831122747134286,
+    placeName: 'Via Sant\'Angelo (zona 2)',
+    placeDescription: 'Secondo tratto di Via Sant\'Angelo, in prossimità dell\'ITIS '
+        'E. Majorana. Questa zona è particolarmente frequentata dagli studenti '
+        'che raggiungono l\'istituto a piedi ogni mattina.',
+    placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
+    placeImageAsset: '',
+  ),
+  QrPoint(
+    label: 'Via Sant\'Angelo 3',
+    password: 'pass9',
+    lat: 41.4688109201981,
+    lng: 13.833891784111781,
+    placeName: 'Via Sant\'Angelo (zona 3)',
+    placeDescription: 'Terzo tratto di Via Sant\'Angelo, nelle immediate vicinanze '
+        'dell\'ITIS E. Majorana. Quasi alla fine del percorso dalla stazione '
+        'alla scuola.',
+    placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
+    placeImageAsset: '',
+  ),
+  QrPoint(
+    label: 'Via Sant\'Angelo 4',
+    password: 'pass10',
+    lat: 41.47767602497951,
+    lng: 13.826309190301341,
+    placeName: 'Via Sant\'Angelo (zona 4)',
+    placeDescription: 'Quarto tratto di Via Sant\'Angelo. Punto panoramico da cui '
+        'si può osservare il territorio circostante di Cassino e le colline '
+        'che fanno da cornice alla città.',
+    placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
     placeImageAsset: '',
   ),
 ];
@@ -263,7 +348,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           Text('Percorso completato!'),
         ]),
         content: const Text(
-          'Hai scansionato tutti e 3 i punti del percorso '
+          'Hai scansionato tutti e 10 i punti del percorso '
           'dalla Stazione all\'ITIS. Ottimo lavoro!',
         ),
         actions: [
