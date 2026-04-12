@@ -39,8 +39,9 @@ const String _darkMapStyle = r'['
 const double _kPoiNotifyRadius = 40.0;
 
 /// Distanza massima in metri tra il POI e la polyline del percorso
-/// perché il banner scatti (evita POI fuori percorso).
-const double _kPoiRouteProximity = 120.0;
+/// perché il banner scatti. Aumentata per non bloccare il popup
+/// quando il percorso non è ancora calcolato.
+const double _kPoiRouteProximity = 300.0;
 
 class MapNavigationScreen extends StatefulWidget {
   final Destination destination;
@@ -197,7 +198,9 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   }
 
   // ── Logica prossimità POI ────────────────────────────────────────────────────
-  /// Controlla se l'utente è vicino a un POI che si trova anche sul percorso.
+  /// Controlla se l'utente è vicino a un POI.
+  /// Se il percorso è disponibile, verifica anche la vicinanza alla polyline.
+  /// Se il percorso NON è ancora disponibile, mostra comunque il banner.
   void _checkPoiProximity(Position position, List<LatLng> routePoints) {
     for (final poi in kQrPoints) {
       if (_notifiedPoi.contains(poi.label)) continue;
@@ -207,7 +210,8 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
           position.latitude, position.longitude, poi.lat, poi.lng);
       if (distUser > _kPoiNotifyRadius) continue;
 
-      // 2. POI entro _kPoiRouteProximity dalla polyline del percorso
+      // 2. Se il percorso è calcolato, verifica vicinanza alla polyline
+      //    Se il percorso non è ancora disponibile, mostra il banner comunque
       if (routePoints.isNotEmpty && !_isPoiNearRoute(poi, routePoints)) continue;
 
       _notifiedPoi.add(poi.label);
@@ -339,6 +343,20 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   void _applyMapStyle(GoogleMapController controller) {
     final isDark = context.read<ThemeProvider>().isDark;
     controller.setMapStyle(isDark ? _darkMapStyle : null);
+  }
+
+  /// Apre il QR scanner dalla schermata mappa
+  Future<void> _openQrScanner() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => QrCameraPage(
+          points: kQrPoints,
+          unlockedLabels: const {},
+          onUnlock: (_) {},
+        ),
+      ),
+    );
   }
 
   @override
@@ -531,6 +549,13 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                       onTap: () => tts.toggle(),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  // ── Pulsante QR Scanner ───────────────────────────────────
+                  _buildTopButton(
+                    icon: Icons.qr_code_scanner_rounded,
+                    onTap: _openQrScanner,
+                    tooltip: 'Scansiona QR',
+                  ),
                 ],
               ),
             ),
@@ -651,9 +676,10 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     required IconData icon,
     required VoidCallback onTap,
     bool active = false,
+    String? tooltip,
   }) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
+    final btn = Container(
       decoration: BoxDecoration(
         color: active ? cs.primary : cs.surface,
         borderRadius: BorderRadius.circular(18),
@@ -675,6 +701,8 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
         ),
       ),
     );
+    if (tooltip != null) return Tooltip(message: tooltip, child: btn);
+    return btn;
   }
 
   Widget _buildStatChip(ThemeData theme, IconData icon, String label) {
@@ -814,7 +842,7 @@ class _PoiInfoSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final hasImage = point.placeImageAsset.isNotEmpty;
+    final hasImage = point.placeImageUrl.isNotEmpty;
     final name = point.placeName.isNotEmpty ? point.placeName : point.label;
 
     return DraggableScrollableSheet(
@@ -845,9 +873,16 @@ class _PoiInfoSheet extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: hasImage
-                        ? Image.asset(point.placeImageAsset,
-                            height: 180, width: double.infinity, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _placeholder(theme))
+                        ? Image.network(
+                            point.placeImageUrl,
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) => progress == null
+                                ? child
+                                : _buildImageSkeleton(theme),
+                            errorBuilder: (_, __, ___) => _placeholder(theme),
+                          )
                         : _placeholder(theme),
                   ),
                   const SizedBox(height: 20),
@@ -908,6 +943,23 @@ class _PoiInfoSheet extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageSkeleton(ThemeData theme) {
+    return Container(
+      height: 180,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: theme.colorScheme.primary,
+          strokeWidth: 2.5,
         ),
       ),
     );
