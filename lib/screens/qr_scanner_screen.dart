@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -34,42 +35,49 @@ const String _darkMapStyle = r'['
   r'{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}'
   r']';
 
+// ─── Dati reali del percorso Stazione → ITIS Majorana, Cassino ───────────────
 const kQrPoints = [
   QrPoint(
-    label: 'Punto 1',
-    password: 'pass1',
-    lat: 41.482421,
-    lng: 13.825648,
-    placeName: 'Nome del luogo 1',
-    placeDescription: 'Descrizione del primo punto di interesse lungo il '
-        'percorso dalla Stazione all\'ITIS. Aggiungi qui le informazioni '
-        'storiche, curiosità o indicazioni utili.',
-    placeAddress: 'Via Example 1, Cassino (FR)',
-    placeImageAsset: '',
+    label: 'Piazza Labriola',
+    password: 'qr_labriola_2024',
+    lat: 41.483500,
+    lng: 13.830200,
+    placeName: 'Piazza Antonio Labriola',
+    placeDescription: 'Piazza centrale di Cassino, intitolata ad Antonio Labriola '
+        '(1843–1904), filosofo e teorico marxista nato proprio a Cassino. '
+        'La piazza è un punto di riferimento per la vita cittadina e ospita '
+        'diversi edifici storici del centro. Da qui inizia il tragitto '
+        'principale verso il quartiere scolastico.',
+    placeAddress: 'Piazza Antonio Labriola, Cassino (FR)',
+    placeImageAsset: 'assets/images/qr/piazza_labriola.jpg',
   ),
   QrPoint(
-    label: 'Punto 2',
-    password: 'pass2',
-    lat: 41.475818,
-    lng: 13.828921,
-    placeName: 'Nome del luogo 2',
-    placeDescription: 'Descrizione del secondo punto di interesse. '
-        'Puoi inserire informazioni sul quartiere, punti di riferimento '
-        'o qualsiasi dettaglio utile per gli studenti.',
-    placeAddress: 'Via Example 2, Cassino (FR)',
-    placeImageAsset: '',
+    label: 'Villa Comunale',
+    password: 'qr_villa_2024',
+    lat: 41.477600,
+    lng: 13.829100,
+    placeName: 'Villa Comunale di Cassino',
+    placeDescription: 'Il parco pubblico principale di Cassino, un polmone verde '
+        'nel cuore della città. La villa è stata ricostruita dopo i '
+        'bombardamenti della Seconda Guerra Mondiale che distrussero '
+        'quasi interamente Cassino nel 1944. Oggi è luogo di ritrovo '
+        'quotidiano per studenti e cittadini.',
+    placeAddress: 'Viale Dante Alighieri, Cassino (FR)',
+    placeImageAsset: 'assets/images/qr/villa_comunale.jpg',
   ),
   QrPoint(
-    label: 'Punto 3',
-    password: 'pass3',
-    lat: 41.474282,
-    lng: 13.828943,
-    placeName: 'Nome del luogo 3',
-    placeDescription: 'Descrizione del terzo punto di interesse, '
-        'l\'ultimo prima di arrivare all\'ITIS. Aggiungi qui le '
-        'informazioni che ritieni più utili.',
-    placeAddress: 'Via Example 3, Cassino (FR)',
-    placeImageAsset: '',
+    label: 'Via Enrico De Nicola',
+    password: 'qr_denicola_2024',
+    lat: 41.470500,
+    lng: 13.833400,
+    placeName: 'Incrocio Via De Nicola',
+    placeDescription: 'L\'ultimo tratto del percorso prima di arrivare all\'ITIS. '
+        'Via Enrico De Nicola prende il nome dal primo Presidente della '
+        'Repubblica Italiana (1947–1948). In questa zona si trovano '
+        'diversi istituti scolastici superiori di Cassino, che rendono '
+        'il quartiere il polo educativo della città.',
+    placeAddress: 'Via Enrico De Nicola, Cassino (FR)',
+    placeImageAsset: 'assets/images/qr/via_denicola.jpg',
   ),
 ];
 
@@ -189,6 +197,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     return d != null && d <= _kScanRadius;
   }
 
+  // Restituisce l'indice del prossimo punto da sbloccare (ordine forzato)
+  int get _nextIndex {
+    for (int i = 0; i < kQrPoints.length; i++) {
+      if (!_unlocked.contains(kQrPoints[i].label)) return i;
+    }
+    return kQrPoints.length;
+  }
+
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
     markers.add(Marker(
@@ -243,7 +259,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             setState(() => _unlocked.add(label));
             _saveUnlocked();
             if (_unlocked.length == kQrPoints.length) {
-              Future.delayed(const Duration(milliseconds: 300), _showCompletionDialog);
+              Future.delayed(const Duration(milliseconds: 400), _showCompletionDialog);
             }
           },
         ),
@@ -255,24 +271,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(children: [
-          Text('🎉', style: TextStyle(fontSize: 28)),
-          SizedBox(width: 12),
-          Text('Percorso completato!'),
-        ]),
-        content: const Text(
-          'Hai scansionato tutti e 3 i punti del percorso '
-          'dalla Stazione all\'ITIS. Ottimo lavoro!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () { Navigator.pop(context); Navigator.pop(context); },
-            child: const Text('Torna alla Home'),
-          ),
-        ],
-      ),
+      builder: (_) => const _CompletionDialog(),
     );
   }
 
@@ -311,7 +310,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               children: [
                 Row(
                   children: [
-                    // Tasto indietro — bordo quadrato arrotondato come le altre pagine
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Container(
@@ -325,7 +323,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Icona + titolo
                     const Icon(Icons.qr_code_scanner_rounded,
                         color: Colors.white, size: 26),
                     const SizedBox(width: 10),
@@ -338,7 +335,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         ),
                       ),
                     ),
-                    // Tasto reset — bordo quadrato arrotondato come le altre pagine
                     Tooltip(
                       message: 'Resetta progresso',
                       child: GestureDetector(
@@ -358,10 +354,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                // Sottotitolo + contatore
                 Row(
                   children: [
-                    const SizedBox(width: 60), // allinea con il titolo
+                    const SizedBox(width: 60),
                     Expanded(
                       child: Text(
                         'Stazione → ITIS  •  ${_unlocked.length}/${kQrPoints.length} sbloccati',
@@ -463,6 +458,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         final dist = _distanceTo(p);
                         final nearby = _isNearby(p);
                         final done = _unlocked.contains(p.label);
+                        // Ordine forzato: il punto è bloccato se quello precedente non è completato
+                        final isLocked = i > 0 && !_unlocked.contains(kQrPoints[i - 1].label);
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 14),
                           child: _QrPointCard(
@@ -471,6 +468,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             distance: dist,
                             isNearby: nearby,
                             isUnlocked: done,
+                            isLocked: isLocked,
                             onLocate: () =>
                                 _mapController?.animateCamera(
                               CameraUpdate.newCameraPosition(
@@ -518,6 +516,9 @@ class _QrCameraPageState extends State<QrCameraPage>
   bool _processing = false;
   String? _errorMsg;
   bool _started = false;
+
+  // FIX: traccia se il QR è stato riconosciuto per gestire il swipe-down
+  QrPoint? _pendingUnlock;
 
   @override
   void initState() {
@@ -582,21 +583,51 @@ class _QrCameraPageState extends State<QrCameraPage>
   }
 
   void _showSuccess(QrPoint point) {
+    // FIX: salva il pending unlock prima di aprire il bottom sheet.
+    // Se l'utente fa swipe-down senza premere "Continua", il punto
+    // viene comunque sbloccato tramite il WillPopScope del sheet.
+    _pendingUnlock = point;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      isDismissible: false,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      // FIX: .then() gestisce la chiusura via swipe-down
+    ).then((_) {
+      if (_pendingUnlock != null) {
+        // L'utente ha chiuso il sheet senza premere "Continua" — sblocca comunque
+        widget.onUnlock(_pendingUnlock!.label);
+        _pendingUnlock = null;
+        if (mounted) Navigator.pop(context);
+      }
+    });
+
+    // Rebuild the showModalBottomSheet call with the builder
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
       enableDrag: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _PlaceInfoSheet(
         point: point,
         onContinue: () {
+          _pendingUnlock = null; // "Continua" gestisce l'unlock
           widget.onUnlock(point.label);
-          Navigator.pop(context);
-          Navigator.pop(context);
+          Navigator.pop(context); // chiude il sheet
+          Navigator.pop(context); // torna alla lista
         },
       ),
-    );
+    ).then((_) {
+      // Sheet chiuso (sia via "Continua" che via swipe-down)
+      if (_pendingUnlock != null) {
+        widget.onUnlock(_pendingUnlock!.label);
+        _pendingUnlock = null;
+        if (mounted) Navigator.pop(context);
+      }
+    });
   }
 
   @override
@@ -758,6 +789,188 @@ class _QrCameraPageState extends State<QrCameraPage>
   }
 }
 
+// ─── Dialog completamento con animazione ─────────────────────────────────────
+
+class _CompletionDialog extends StatefulWidget {
+  const _CompletionDialog();
+
+  @override
+  State<_CompletionDialog> createState() => _CompletionDialogState();
+}
+
+class _CompletionDialogState extends State<_CompletionDialog>
+    with TickerProviderStateMixin {
+  late final AnimationController _scaleCtrl;
+  late final AnimationController _confettiCtrl;
+  late final Animation<double> _scaleAnim;
+  final List<_ConfettiParticle> _particles = [];
+  final math.Random _rng = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _scaleAnim = CurvedAnimation(parent: _scaleCtrl, curve: Curves.elasticOut);
+    _scaleCtrl.forward();
+
+    _confettiCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..addListener(() => setState(() {}));
+
+    // Genera particelle confetti
+    for (int i = 0; i < 60; i++) {
+      _particles.add(_ConfettiParticle(rng: _rng));
+    }
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) _confettiCtrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scaleCtrl.dispose();
+    _confettiCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Stack(
+      children: [
+        // Confetti layer
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _ConfettiPainter(
+                particles: _particles,
+                progress: _confettiCtrl.value,
+              ),
+            ),
+          ),
+        ),
+        // Dialog
+        Center(
+          child: ScaleTransition(
+            scale: _scaleAnim,
+            child: Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🎉', style: TextStyle(fontSize: 56)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Percorso completato!',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Hai scansionato tutti e ${kQrPoints.length} i punti del percorso '
+                      'dalla Stazione all\'ITIS. Ottimo lavoro!',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.7),
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.home_rounded),
+                        label: const Text('Torna alla Home'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Confetti painter ─────────────────────────────────────────────────────────
+
+class _ConfettiParticle {
+  final double x;
+  final double vy;
+  final double vx;
+  final Color color;
+  final double size;
+  final double rotation;
+
+  _ConfettiParticle({required math.Random rng})
+      : x = rng.nextDouble(),
+        vy = 0.3 + rng.nextDouble() * 0.7,
+        vx = (rng.nextDouble() - 0.5) * 0.3,
+        color = [
+          Colors.red,
+          Colors.blue,
+          Colors.green,
+          Colors.yellow,
+          Colors.purple,
+          Colors.orange,
+          Colors.pink,
+        ][rng.nextInt(7)],
+        size = 6 + rng.nextDouble() * 8,
+        rotation = rng.nextDouble() * math.pi * 2;
+}
+
+class _ConfettiPainter extends CustomPainter {
+  final List<_ConfettiParticle> particles;
+  final double progress;
+
+  const _ConfettiPainter({required this.particles, required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    for (final p in particles) {
+      final x = (p.x + p.vx * progress) * size.width;
+      final y = -50 + p.vy * (size.height + 100) * progress;
+      final opacity = progress < 0.7 ? 1.0 : (1.0 - progress) / 0.3;
+      paint.color = p.color.withValues(alpha: opacity.clamp(0.0, 1.0));
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(p.rotation + progress * math.pi * 4);
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.5),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => old.progress != progress;
+}
+
 // ─── Legenda ──────────────────────────────────────────────────────────────────
 
 class _LegendDot extends StatelessWidget {
@@ -885,6 +1098,7 @@ class _QrPointCard extends StatelessWidget {
   final double? distance;
   final bool isNearby;
   final bool isUnlocked;
+  final bool isLocked; // ordine forzato: punto precedente non ancora completato
   final VoidCallback onLocate;
   final VoidCallback onScan;
 
@@ -894,6 +1108,7 @@ class _QrPointCard extends StatelessWidget {
     required this.distance,
     required this.isNearby,
     required this.isUnlocked,
+    required this.isLocked,
     required this.onLocate,
     required this.onScan,
   });
@@ -919,6 +1134,16 @@ class _QrPointCard extends StatelessWidget {
           : Colors.green.shade100;
       iconTextColor =
           isDark ? Colors.green.shade400 : Colors.green.shade700;
+    } else if (isLocked) {
+      borderColor = isDark
+          ? cs.onSurface.withValues(alpha: 0.10)
+          : Colors.grey.shade200;
+      iconBg = isDark
+          ? cs.onSurface.withValues(alpha: 0.05)
+          : Colors.grey.shade100;
+      iconTextColor = isDark
+          ? cs.onSurface.withValues(alpha: 0.25)
+          : Colors.grey.shade400;
     } else if (isNearby) {
       borderColor = cs.primary;
       iconBg = cs.primaryContainer;
@@ -937,111 +1162,120 @@ class _QrPointCard extends StatelessWidget {
 
     final stateLabel = isUnlocked
         ? '✅ Completato'
-        : isNearby
-            ? '📡 Sei vicino — pronto per scansionare!'
-            : distance != null
-                ? '📍 A ${_fmt(distance!)} da qui'
-                : '📍 GPS non disponibile';
+        : isLocked
+            ? '🔒 Completa prima il punto ${index}'
+            : isNearby
+                ? '📡 Sei vicino — pronto per scansionare!'
+                : distance != null
+                    ? '📍 A ${_fmt(distance!)} da qui'
+                    : '📍 GPS non disponibile';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: borderColor, width: isNearby ? 2 : 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: isNearby
-                ? cs.primary.withValues(alpha: 0.15)
-                : Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          )
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
-        child: Row(children: [
-          Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: isUnlocked
-                ? Icon(Icons.check_rounded, color: iconTextColor, size: 22)
-                : Text('${index + 1}',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: iconTextColor)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(point.label,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 3),
-                  Text(stateLabel,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isUnlocked
-                            ? (isDark
-                                ? Colors.green.shade400
-                                : Colors.green.shade600)
-                            : isNearby
-                                ? cs.primary
-                                : cs.onSurface.withValues(alpha: 0.45),
-                        fontWeight:
-                            isNearby ? FontWeight.w600 : FontWeight.normal,
-                      )),
-                ]),
-          ),
-          IconButton(
-            icon: Icon(Icons.map_rounded, color: cs.primary, size: 22),
-            onPressed: onLocate,
-            tooltip: 'Mostra sulla mappa',
-            padding: const EdgeInsets.all(8),
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 4),
-          if (!isUnlocked)
-            ElevatedButton.icon(
-              onPressed: onScan,
-              icon:
-                  const Icon(Icons.qr_code_scanner_rounded, size: 18),
-              label: const Text('Scan'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isNearby
-                    ? cs.primary
-                    : cs.primary.withValues(alpha: 0.7),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: const TextStyle(
-                    fontWeight: FontWeight.w600, fontSize: 13),
-              ),
+    return Opacity(
+      opacity: isLocked ? 0.55 : 1.0,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: borderColor, width: isNearby ? 2 : 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: isNearby
+                  ? cs.primary.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
             )
-          else
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
+          child: Row(children: [
             Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.green.shade900.withValues(alpha: 0.5)
-                    : Colors.green.shade100,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(Icons.check_rounded,
-                  color: isDark
-                      ? Colors.green.shade400
-                      : Colors.green.shade700,
-                  size: 20),
+              width: 42, height: 42,
+              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: isUnlocked
+                  ? Icon(Icons.check_rounded, color: iconTextColor, size: 22)
+                  : isLocked
+                      ? Icon(Icons.lock_rounded, color: iconTextColor, size: 20)
+                      : Text('${index + 1}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                              color: iconTextColor)),
             ),
-        ]),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(point.label,
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 3),
+                    Text(stateLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isUnlocked
+                              ? (isDark
+                                  ? Colors.green.shade400
+                                  : Colors.green.shade600)
+                              : isLocked
+                                  ? cs.onSurface.withValues(alpha: 0.35)
+                                  : isNearby
+                                      ? cs.primary
+                                      : cs.onSurface.withValues(alpha: 0.45),
+                          fontWeight:
+                              isNearby ? FontWeight.w600 : FontWeight.normal,
+                        )),
+                  ]),
+            ),
+            IconButton(
+              icon: Icon(Icons.map_rounded, color: cs.primary, size: 22),
+              onPressed: onLocate,
+              tooltip: 'Mostra sulla mappa',
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 4),
+            if (!isUnlocked && !isLocked)
+              ElevatedButton.icon(
+                onPressed: onScan,
+                icon:
+                    const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                label: const Text('Scan'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isNearby
+                      ? cs.primary
+                      : cs.primary.withValues(alpha: 0.7),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              )
+            else if (isUnlocked)
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.green.shade900.withValues(alpha: 0.5)
+                      : Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.check_rounded,
+                    color: isDark
+                        ? Colors.green.shade400
+                        : Colors.green.shade700,
+                    size: 20),
+              ),
+          ]),
+        ),
       ),
     );
   }
