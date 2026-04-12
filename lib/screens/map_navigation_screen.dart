@@ -12,7 +12,6 @@ import '../services/tts_service.dart';
 import 'destination_picker_screen.dart';
 import 'qr_scanner_screen.dart' show QrCameraPage, QrPoint, kQrPoints;
 
-// Google Maps dark style JSON
 const String _darkMapStyle = r'['
   r'{"elementType":"geometry","stylers":[{"color":"#212121"}]},'
   r'{"elementType":"labels.icon","stylers":[{"visibility":"off"}]},'
@@ -36,8 +35,12 @@ const String _darkMapStyle = r'['
   r'{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}'
   r']';
 
-/// Raggio in metri entro cui scatta la notifica di prossimità.
-const double _kPoiNotifyRadius = 80.0;
+/// Raggio in metri entro cui scatta il banner di prossimità POI.
+const double _kPoiNotifyRadius = 40.0;
+
+/// Distanza massima in metri tra il POI e la polyline del percorso
+/// perché il banner scatti (evita POI fuori percorso).
+const double _kPoiRouteProximity = 120.0;
 
 class MapNavigationScreen extends StatefulWidget {
   final Destination destination;
@@ -59,16 +62,12 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   final Set<Polyline> _polylines = {};
   final Set<Circle> _circles = {};
 
-  final Map<String, Offset> _qrScreenPositions = {};
-
   int _lastRoutePointsHash = 0;
   LatLng? _lastCameraTarget;
   static const double _cameraUpdateThreshold = 2.0;
 
-  // ── Prossimità POI ────────────────────────────────────────────────────────
-  /// Punti già notificati in questa sessione (evita spam).
+  // ── Prossimità POI ──────────────────────────────────────────────────────────
   final Set<String> _notifiedPoi = {};
-  /// Punto attualmente mostrato nel banner (null = banner nascosto).
   QrPoint? _nearbyPoi;
   late final AnimationController _poiBannerCtrl;
   late final Animation<Offset> _poiBannerSlide;
@@ -83,9 +82,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   late final Animation<double> _bannerFade;
   late final Animation<Offset> _bannerSlide;
 
-  Set<String> _unlockedQr = {};
-  static const _kPrefsKey = 'qr_unlocked_points';
-
   LatLng get _destLatLng =>
       LatLng(widget.destination.latitude, widget.destination.longitude);
 
@@ -93,7 +89,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   void initState() {
     super.initState();
     _setupAnimations();
-    _loadUnlockedQr();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _enterCtrl.forward();
       _initializeNavigation();
@@ -103,17 +98,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
         TextDirection.ltr,
       );
     });
-  }
-
-  Future<void> _loadUnlockedQr() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getStringList(_kPrefsKey) ?? [];
-    if (mounted) setState(() => _unlockedQr = Set.from(saved));
-  }
-
-  Future<void> _saveUnlockedQr() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_kPrefsKey, _unlockedQr.toList());
   }
 
   void _setupAnimations() {
@@ -146,14 +130,13 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                 parent: _enterCtrl,
                 curve: const Interval(0.15, 0.65, curve: Curves.easeOutCubic)));
 
-    // Animazione banner POI (sale dal basso)
     _poiBannerCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 380));
     _poiBannerSlide =
         Tween<Offset>(begin: const Offset(0, 1.4), end: Offset.zero).animate(
             CurvedAnimation(parent: _poiBannerCtrl, curve: Curves.easeOutCubic));
-    _poiBannerFade = CurvedAnimation(
-        parent: _poiBannerCtrl, curve: Curves.easeOut);
+    _poiBannerFade =
+        CurvedAnimation(parent: _poiBannerCtrl, curve: Curves.easeOut);
   }
 
   Future<void> _initializeNavigation() async {
@@ -195,7 +178,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     if (_usingFallbackPosition) setState(() => _usingFallbackPosition = false);
     await navService.updatePosition(position);
     _rebuildMapData();
-    _checkPoiProximity(position);
+    _checkPoiProximity(position, navService.routePoints);
     if (_followUser && _mapController != null) {
       final newTarget = LatLng(position.latitude, position.longitude);
       final last = _lastCameraTarget;
@@ -213,25 +196,59 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
     }
   }
 
-  // ── Logica prossimità POI ────────────────────────────────────────────────
-  void _checkPoiProximity(Position position) {
+  // ── Logica prossimità POI ────────────────────────────────────────────────────
+  /// Controlla se l'utente è vicino a un POI che si trova anche sul percorso.
+  void _checkPoiProximity(Position position, List<LatLng> routePoints) {
     for (final poi in kQrPoints) {
       if (_notifiedPoi.contains(poi.label)) continue;
-      final dist = Geolocator.distanceBetween(
+
+      // 1. Utente entro _kPoiNotifyRadius dal POI
+      final distUser = Geolocator.distanceBetween(
           position.latitude, position.longitude, poi.lat, poi.lng);
-      if (dist <= _kPoiNotifyRadius) {
-        _notifiedPoi.add(poi.label);
-        _showPoiBanner(poi);
-        break; // un banner alla volta
-      }
+      if (distUser > _kPoiNotifyRadius) continue;
+
+      // 2. POI entro _kPoiRouteProximity dalla polyline del percorso
+      if (routePoints.isNotEmpty && !_isPoiNearRoute(poi, routePoints)) continue;
+
+      _notifiedPoi.add(poi.label);
+      _showPoiBanner(poi);
+      break;
     }
+  }
+
+  /// Restituisce true se il POI è entro [_kPoiRouteProximity] da almeno
+  /// un segmento della polyline del percorso.
+  bool _isPoiNearRoute(QrPoint poi, List<LatLng> routePoints) {
+    for (int i = 0; i < routePoints.length - 1; i++) {
+      final d = _distanceToSegment(
+        LatLng(poi.lat, poi.lng),
+        routePoints[i],
+        routePoints[i + 1],
+      );
+      if (d <= _kPoiRouteProximity) return true;
+    }
+    return false;
+  }
+
+  /// Distanza approssimativa in metri da un punto a un segmento lat/lng.
+  double _distanceToSegment(LatLng p, LatLng a, LatLng b) {
+    final double dx = b.longitude - a.longitude;
+    final double dy = b.latitude - a.latitude;
+    if (dx == 0 && dy == 0) {
+      return Geolocator.distanceBetween(p.latitude, p.longitude, a.latitude, a.longitude);
+    }
+    double t = ((p.longitude - a.longitude) * dx + (p.latitude - a.latitude) * dy) /
+        (dx * dx + dy * dy);
+    t = t.clamp(0.0, 1.0);
+    final closest = LatLng(a.latitude + t * dy, a.longitude + t * dx);
+    return Geolocator.distanceBetween(
+        p.latitude, p.longitude, closest.latitude, closest.longitude);
   }
 
   void _showPoiBanner(QrPoint poi) {
     if (!mounted) return;
     setState(() => _nearbyPoi = poi);
     _poiBannerCtrl.forward(from: 0);
-    // Auto-dismiss dopo 6 secondi
     Future.delayed(const Duration(seconds: 6), () {
       if (mounted && _nearbyPoi?.label == poi.label) _dismissPoiBanner();
     });
@@ -270,19 +287,17 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       infoWindow: InfoWindow(title: widget.destination.name),
     ));
 
+    // POI — tutti cliccabili, nessuna dipendenza dal QR
     for (final qp in kQrPoints) {
-      final unlocked = _unlockedQr.contains(qp.label);
       _markers.add(Marker(
-        markerId: MarkerId('qr_nav_${qp.label}'),
+        markerId: MarkerId('poi_${qp.label}'),
         position: qp.latLng,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          unlocked ? BitmapDescriptor.hueViolet : BitmapDescriptor.hueYellow,
-        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
         infoWindow: InfoWindow(
-          title: qp.label,
-          snippet: unlocked ? '✅ Sbloccato — tocca ℹ️ per i dettagli' : 'Avvicinati e scansiona il QR',
+          title: qp.placeName.isNotEmpty ? qp.placeName : qp.label,
+          snippet: 'Tocca per i dettagli',
         ),
-        onTap: unlocked ? () => _showPlaceSheet(qp) : null,
+        onTap: () => _showPlaceSheet(qp),
       ));
     }
 
@@ -309,23 +324,6 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       strokeWidth: 1,
     ));
     if (mounted) setState(() {});
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateQrScreenPositions());
-  }
-
-  Future<void> _updateQrScreenPositions() async {
-    final ctrl = _mapController;
-    if (ctrl == null || !mounted) return;
-    final Map<String, Offset> updated = {};
-    for (final qp in kQrPoints) {
-      if (!_unlockedQr.contains(qp.label)) continue;
-      try {
-        final sp = await ctrl.getScreenCoordinate(qp.latLng);
-        updated[qp.label] = Offset(sp.x.toDouble(), sp.y.toDouble());
-      } catch (_) {}
-    }
-    if (mounted) setState(() => _qrScreenPositions
-      ..clear()
-      ..addAll(updated));
   }
 
   void _showPlaceSheet(QrPoint point) {
@@ -334,42 +332,19 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
       isScrollControlled: true,
       enableDrag: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _QrInfoSheetWrapper(point: point),
+      builder: (_) => _PoiInfoSheet(point: point),
     );
-  }
-
-  Future<void> _openQrScanner() async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => QrCameraPage(
-          points: kQrPoints,
-          unlockedLabels: _unlockedQr,
-          onUnlock: (label) {
-            setState(() => _unlockedQr.add(label));
-            _saveUnlockedQr();
-            _rebuildMapData();
-          },
-        ),
-      ),
-    );
-    _rebuildMapData();
   }
 
   void _applyMapStyle(GoogleMapController controller) {
     final isDark = context.read<ThemeProvider>().isDark;
-    if (isDark) {
-      controller.setMapStyle(_darkMapStyle);
-    } else {
-      controller.setMapStyle(null);
-    }
+    controller.setMapStyle(isDark ? _darkMapStyle : null);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isDark = context.watch<ThemeProvider>().isDark;
     final position = context.watch<LocationService>().currentPosition;
     final cameraTarget = position != null
         ? LatLng(position.latitude, position.longitude)
@@ -400,39 +375,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
             onCameraMoveStarted: () {
               if (_followUser) setState(() => _followUser = false);
             },
-            onCameraIdle: () => _updateQrScreenPositions(),
-            onCameraMove: (_) => _updateQrScreenPositions(),
           ),
-
-          // Overlay icone QR sbloccati
-          for (final qp in kQrPoints)
-            if (_unlockedQr.contains(qp.label) &&
-                _qrScreenPositions.containsKey(qp.label))
-              Positioned(
-                left: _qrScreenPositions[qp.label]!.dx - 18,
-                top: _qrScreenPositions[qp.label]!.dy - 52,
-                child: GestureDetector(
-                  onTap: () => _showPlaceSheet(qp),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade600,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.green.shade900.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.info_outline_rounded,
-                        color: Colors.white, size: 18),
-                  ),
-                ),
-              ),
 
           // Banner GPS fallback
           if (_usingFallbackPosition)
@@ -443,27 +386,21 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
                 opacity: _bannerFade,
                 child: SlideTransition(
                   position: _bannerSlide,
-                  child: Semantics(
-                    liveRegion: true,
-                    label: 'GPS non disponibile. Percorso calcolato dal centro di Cassino.',
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                          color: Colors.orange.shade700,
-                          borderRadius: BorderRadius.circular(14)),
-                      child: const Row(children: [
-                        Icon(Icons.location_off, color: Colors.white, size: 18),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: ExcludeSemantics(
-                            child: Text(
-                              'GPS non disponibile — percorso da centro Cassino',
-                              style: TextStyle(color: Colors.white, fontSize: 13),
-                            ),
-                          ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                        color: Colors.orange.shade700,
+                        borderRadius: BorderRadius.circular(14)),
+                    child: const Row(children: [
+                      Icon(Icons.location_off, color: Colors.white, size: 18),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'GPS non disponibile — percorso da centro Cassino',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
                         ),
-                      ]),
-                    ),
+                      ),
+                    ]),
                   ),
                 ),
               ),
@@ -477,106 +414,73 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
               opacity: _topBarFade,
               child: SlideTransition(
                 position: _topBarSlide,
-                child: RepaintBoundary(
-                  child: Row(
-                    children: [
-                      Semantics(
-                        button: true,
-                        label: 'Ferma la navigazione e torna indietro',
-                        child: _buildTopButton(
-                          icon: Icons.arrow_back_rounded,
-                          onTap: () {
-                            context.read<LocationService>().removeListener(_handleLocationUpdate);
-                            context.read<NavigationService>().stopNavigation();
-                            Navigator.pop(context);
-                          },
+                child: Row(
+                  children: [
+                    _buildTopButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () {
+                        context.read<LocationService>().removeListener(_handleLocationUpdate);
+                        context.read<NavigationService>().stopNavigation();
+                        Navigator.pop(context);
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: cs.surface,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 16, offset: const Offset(0, 8)),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: cs.surface,
-                            borderRadius: BorderRadius.circular(22),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.12),
-                                  blurRadius: 16, offset: const Offset(0, 8)),
-                            ],
-                          ),
-                          child: Consumer<NavigationService>(
-                            builder: (_, nav, __) {
-                              if (!nav.isCalculatingRoute &&
-                                  nav.currentInstruction.isNotEmpty) {
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  SemanticsService.announce(
-                                      nav.currentInstruction, TextDirection.ltr);
-                                });
-                              }
-                              return nav.isCalculatingRoute
-                                  ? Semantics(
-                                      liveRegion: true,
-                                      label: 'Calcolo percorso in corso, attendere',
-                                      child: Row(children: [
-                                        const SizedBox(
-                                            width: 18, height: 18,
-                                            child: CircularProgressIndicator(strokeWidth: 2.2)),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: ExcludeSemantics(
-                                            child: Text('Calcolo percorso...',
-                                                style: theme.textTheme.titleMedium
-                                                    ?.copyWith(fontWeight: FontWeight.bold)),
-                                          ),
-                                        ),
-                                      ]),
-                                    )
-                                  : Semantics(
-                                      liveRegion: true,
-                                      label: nav.error != null
-                                          ? 'Errore: ${nav.error}'
-                                          : '${nav.currentInstruction}. '
-                                            'Distanza rimanente: ${nav.getFormattedDistance()}. '
-                                            'Tempo stimato: ${nav.getFormattedETA()}',
-                                      child: ExcludeSemantics(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              nav.currentInstruction.isEmpty
-                                                  ? 'Preparazione percorso...'
-                                                  : nav.currentInstruction,
-                                              maxLines: 3,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: theme.textTheme.titleMedium?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: nav.error != null
-                                                    ? Colors.red
-                                                    : cs.onSurface,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              nav.error != null
-                                                  ? nav.error!
-                                                  : '${nav.getFormattedDistance()} • ETA ${nav.getFormattedETA()}',
-                                              style: theme.textTheme.bodyMedium?.copyWith(
-                                                color: nav.error != null
-                                                    ? Colors.red.shade300
-                                                    : cs.onSurface.withValues(alpha: 0.6),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                        child: Consumer<NavigationService>(
+                          builder: (_, nav, __) => nav.isCalculatingRoute
+                              ? Row(children: [
+                                  const SizedBox(
+                                      width: 18, height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2.2)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text('Calcolo percorso...',
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(fontWeight: FontWeight.bold)),
+                                  ),
+                                ])
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      nav.currentInstruction.isEmpty
+                                          ? 'Preparazione percorso...'
+                                          : nav.currentInstruction,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: nav.error != null ? Colors.red : cs.onSurface,
                                       ),
-                                    );
-                            },
-                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      nav.error != null
+                                          ? nav.error!
+                                          : '${nav.getFormattedDistance()} • ETA ${nav.getFormattedETA()}',
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: nav.error != null
+                                            ? Colors.red.shade300
+                                            : cs.onSurface.withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -590,80 +494,49 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
               opacity: _sideButtonsFade,
               child: Column(
                 children: [
-                  Semantics(
-                    button: true,
-                    label: 'Centra la mappa sulla tua posizione',
-                    child: _buildTopButton(
-                      icon: Icons.my_location_rounded,
-                      active: _followUser,
-                      onTap: () async {
-                        setState(() => _followUser = true);
-                        final ls = context.read<LocationService>();
-                        await ls.forceRefreshPosition();
-                        final cur = ls.currentPosition;
-                        final target = cur != null
-                            ? LatLng(cur.latitude, cur.longitude)
-                            : _cassinoCenter;
-                        _mapController?.animateCamera(
-                          CameraUpdate.newCameraPosition(CameraPosition(
-                              target: target, zoom: 18, bearing: 0, tilt: 45)),
-                        );
-                      },
-                    ),
+                  _buildTopButton(
+                    icon: Icons.my_location_rounded,
+                    active: _followUser,
+                    onTap: () async {
+                      setState(() => _followUser = true);
+                      final ls = context.read<LocationService>();
+                      await ls.forceRefreshPosition();
+                      final cur = ls.currentPosition;
+                      final target = cur != null
+                          ? LatLng(cur.latitude, cur.longitude)
+                          : _cassinoCenter;
+                      _mapController?.animateCamera(
+                        CameraUpdate.newCameraPosition(CameraPosition(
+                            target: target, zoom: 18, bearing: 0, tilt: 45)),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
-                  Semantics(
-                    button: true,
-                    label: 'Zoom avanti',
-                    child: _buildTopButton(
-                      icon: Icons.add,
-                      onTap: () => _mapController?.animateCamera(CameraUpdate.zoomIn()),
-                    ),
+                  _buildTopButton(
+                    icon: Icons.add,
+                    onTap: () => _mapController?.animateCamera(CameraUpdate.zoomIn()),
                   ),
                   const SizedBox(height: 12),
-                  Semantics(
-                    button: true,
-                    label: 'Zoom indietro',
-                    child: _buildTopButton(
-                      icon: Icons.remove,
-                      onTap: () => _mapController?.animateCamera(CameraUpdate.zoomOut()),
-                    ),
+                  _buildTopButton(
+                    icon: Icons.remove,
+                    onTap: () => _mapController?.animateCamera(CameraUpdate.zoomOut()),
                   ),
                   const SizedBox(height: 12),
                   Consumer<TtsService>(
-                    builder: (_, tts, __) => Semantics(
-                      button: true,
-                      label: tts.enabled
-                          ? 'Disattiva indicazioni vocali'
-                          : 'Attiva indicazioni vocali',
-                      child: _buildTopButton(
-                        icon: tts.enabled
-                            ? Icons.volume_up_rounded
-                            : Icons.volume_off_rounded,
-                        active: tts.enabled,
-                        onTap: () => tts.toggle(),
-                      ),
+                    builder: (_, tts, __) => _buildTopButton(
+                      icon: tts.enabled
+                          ? Icons.volume_up_rounded
+                          : Icons.volume_off_rounded,
+                      active: tts.enabled,
+                      onTap: () => tts.toggle(),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    width: 48, height: 1,
-                    decoration: BoxDecoration(
-                        color: cs.onSurface.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(1)),
-                  ),
-                  const SizedBox(height: 20),
-                  Semantics(
-                    button: true,
-                    label: 'Scansiona QR code',
-                    child: _buildQrButton(),
                   ),
                 ],
               ),
             ),
           ),
 
-          // ── Banner prossimità POI ────────────────────────────────────────
+          // ── Banner prossimità POI ──────────────────────────────────────────
           if (_nearbyPoi != null)
             Positioned(
               left: 16,
@@ -692,90 +565,77 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
               opacity: _bottomCardFade,
               child: SlideTransition(
                 position: _bottomCardSlide,
-                child: RepaintBoundary(
-                  child: Consumer<NavigationService>(
-                    builder: (_, nav, __) => Semantics(
-                      label: nav.hasArrived
-                          ? 'Destinazione raggiunta: ${widget.destination.name}'
-                          : 'Navigazione verso ${widget.destination.name}. '
-                            'Manovra ${nav.currentStepIndex + 1} di ${nav.steps.length}. '
-                            'Progresso: ${(nav.progress * 100).round()} percento.',
-                      child: ExcludeSemantics(
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: cs.surface,
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.14),
-                                  blurRadius: 24, offset: const Offset(0, 10)),
-                            ],
+                child: Consumer<NavigationService>(
+                  builder: (_, nav, __) => Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.14),
+                            blurRadius: 24, offset: const Offset(0, 10)),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                  colors: [cs.primary, cs.secondary]),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: const Icon(Icons.route_rounded, color: Colors.white),
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(colors: [
-                                      cs.primary,
-                                      cs.secondary,
-                                    ]),
-                                    borderRadius: BorderRadius.circular(18),
-                                  ),
-                                  child: const Icon(Icons.route_rounded, color: Colors.white),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  nav.hasArrived
+                                      ? 'Destinazione raggiunta'
+                                      : 'Verso ${widget.destination.name}',
+                                  style: theme.textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        nav.hasArrived
-                                            ? 'Destinazione raggiunta'
-                                            : 'Verso ${widget.destination.name}',
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        nav.steps.isEmpty
-                                            ? 'Calcolo in corso...'
-                                            : 'Manovra ${nav.currentStepIndex + 1}/${nav.steps.length}',
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6)),
-                                      ),
-                                    ],
-                                  ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  nav.steps.isEmpty
+                                      ? 'Calcolo in corso...'
+                                      : 'Manovra ${nav.currentStepIndex + 1}/${nav.steps.length}',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: cs.onSurface.withValues(alpha: 0.6)),
                                 ),
-                              ]),
-                              const SizedBox(height: 16),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(999),
-                                child: LinearProgressIndicator(
-                                  minHeight: 10,
-                                  value: nav.progress,
-                                  backgroundColor: cs.onSurface.withValues(alpha: 0.1),
-                                  valueColor: AlwaysStoppedAnimation(cs.primary),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _buildStatChip(theme, Icons.straighten_rounded,
-                                      nav.getFormattedDistance()),
-                                  _buildStatChip(theme, Icons.schedule_rounded,
-                                      nav.getFormattedETA()),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            minHeight: 10,
+                            value: nav.progress,
+                            backgroundColor: cs.onSurface.withValues(alpha: 0.1),
+                            valueColor: AlwaysStoppedAnimation(cs.primary),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildStatChip(theme, Icons.straighten_rounded,
+                                nav.getFormattedDistance()),
+                            _buildStatChip(theme, Icons.schedule_rounded,
+                                nav.getFormattedETA()),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -810,37 +670,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
           borderRadius: BorderRadius.circular(18),
           child: Padding(
             padding: const EdgeInsets.all(14),
-            child: Icon(icon,
-                color: active ? Colors.white : cs.primary),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQrButton() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF059669), Color(0xFF34D399)],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-              color: const Color(0xFF059669).withValues(alpha: 0.35),
-              blurRadius: 14, offset: const Offset(0, 8)),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _openQrScanner,
-          borderRadius: BorderRadius.circular(18),
-          child: const Padding(
-            padding: EdgeInsets.all(14),
-            child: Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
+            child: Icon(icon, color: active ? Colors.white : cs.primary),
           ),
         ),
       ),
@@ -860,9 +690,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
           Icon(icon, size: 18, color: cs.primary),
           const SizedBox(width: 8),
           Text(label,
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface)),
+              style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface)),
         ],
       ),
     );
@@ -879,7 +707,7 @@ class _MapNavigationScreenState extends State<MapNavigationScreen>
   }
 }
 
-// ── Banner prossimità POI ────────────────────────────────────────────────────
+// ── Banner prossimità POI ──────────────────────────────────────────────────────
 
 class _PoiProximityBanner extends StatelessWidget {
   final QrPoint poi;
@@ -907,12 +735,12 @@ class _PoiProximityBanner extends StatelessWidget {
             color: cs.surface,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: cs.primary.withValues(alpha: 0.35),
+              color: Colors.orange.withValues(alpha: 0.5),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: cs.primary.withValues(alpha: 0.18),
+                color: Colors.orange.withValues(alpha: 0.15),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -923,10 +751,11 @@ class _PoiProximityBanner extends StatelessWidget {
               Container(
                 width: 44, height: 44,
                 decoration: BoxDecoration(
-                  color: cs.primaryContainer,
+                  color: Colors.orange.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(Icons.place_rounded, color: cs.primary, size: 24),
+                child: const Icon(Icons.place_rounded,
+                    color: Colors.orange, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -936,7 +765,7 @@ class _PoiProximityBanner extends StatelessWidget {
                     Text(
                       'Punto di interesse vicino',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.primary,
+                        color: Colors.orange,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.4,
                       ),
@@ -975,11 +804,11 @@ class _PoiProximityBanner extends StatelessWidget {
   }
 }
 
-// ─── Bottom sheet info luogo QR ───────────────────────────────────────────────
+// ── Bottom sheet info POI ──────────────────────────────────────────────────────
 
-class _QrInfoSheetWrapper extends StatelessWidget {
+class _PoiInfoSheet extends StatelessWidget {
   final QrPoint point;
-  const _QrInfoSheetWrapper({required this.point});
+  const _PoiInfoSheet({required this.point});
 
   @override
   Widget build(BuildContext context) {
@@ -989,7 +818,7 @@ class _QrInfoSheetWrapper extends StatelessWidget {
     final name = point.placeName.isNotEmpty ? point.placeName : point.label;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.70,
+      initialChildSize: 0.65,
       minChildSize: 0.45,
       maxChildSize: 0.92,
       builder: (context, scrollController) => Container(
@@ -1013,36 +842,11 @@ class _QrInfoSheetWrapper extends StatelessWidget {
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade900.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green.shade600),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle_rounded,
-                              color: Colors.green.shade400, size: 18),
-                          const SizedBox(width: 6),
-                          Text('${point.label} sbloccato!',
-                              style: TextStyle(
-                                  color: Colors.green.shade300,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: hasImage
                         ? Image.asset(point.placeImageAsset,
-                            height: 200, width: double.infinity, fit: BoxFit.cover,
+                            height: 180, width: double.infinity, fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _placeholder(theme))
                         : _placeholder(theme),
                   ),
@@ -1070,8 +874,8 @@ class _QrInfoSheetWrapper extends StatelessWidget {
                     point.placeDescription.isNotEmpty
                         ? point.placeDescription
                         : 'Descrizione non ancora disponibile.',
-                    style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: cs.onSurface.withValues(alpha: 0.8), height: 1.6),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.8), height: 1.6),
                   ),
                   const SizedBox(height: 28),
                 ],
@@ -1111,7 +915,7 @@ class _QrInfoSheetWrapper extends StatelessWidget {
 
   Widget _placeholder(ThemeData theme) {
     return Container(
-      height: 200, width: double.infinity,
+      height: 180, width: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -1124,15 +928,21 @@ class _QrInfoSheetWrapper extends StatelessWidget {
       ),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.image_rounded,
-            size: 56,
-            color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+            size: 56, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
         const SizedBox(height: 10),
         Text('Immagine in arrivo',
             style: TextStyle(
                 color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                fontWeight: FontWeight.w600,
-                fontSize: 14)),
+                fontWeight: FontWeight.w600, fontSize: 14)),
       ]),
     );
   }
+}
+
+// ── Classe _QrInfoSheetWrapper mantenuta per retrocompatibilità con qr_scanner_screen ──
+class _QrInfoSheetWrapper extends StatelessWidget {
+  final QrPoint point;
+  const _QrInfoSheetWrapper({required this.point});
+  @override
+  Widget build(BuildContext context) => _PoiInfoSheet(point: point);
 }
