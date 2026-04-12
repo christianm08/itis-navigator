@@ -34,127 +34,161 @@ const String _darkMapStyle = r'['
   r'{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}'
   r']';
 
+/// I punti QR del percorso — ogni punto corrisponde a un LUOGO di interesse
+/// di Cassino, non alla via in cui si trova.
 const kQrPoints = [
   QrPoint(
-    label: 'Piazza Giuseppe Garibaldi',
+    label: 'Piazza Garibaldi',
     password: 'pass1',
     lat: 41.48483058959342,
     lng: 13.83213562732474,
-    placeName: 'Piazza Giuseppe Garibaldi',
-    placeDescription: 'Piazza centrale di Cassino, dedicata a Giuseppe Garibaldi, '
+    placeName: 'Piazza Garibaldi',
+    placeDescription:
+        'Piazza centrale di Cassino, dedicata a Giuseppe Garibaldi, '
         'eroe del Risorgimento italiano. Punto di riferimento storico e sociale '
-        'della città, circondata da edifici storici e attività commerciali.',
+        'della città, circondata da edifici storici e attività commerciali. '
+        'La piazza ospita eventi culturali e mercati locali durante tutto l\'anno.',
     placeAddress: 'Piazza Giuseppe Garibaldi, Cassino (FR)',
-    placeImageAsset: '',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Cassino_-_Piazza_Garibaldi.jpg/1280px-Cassino_-_Piazza_Garibaldi.jpg',
   ),
   QrPoint(
-    label: 'Via Crocifisso',
+    label: 'Anfiteatro Romano',
     password: 'pass2',
     lat: 41.48402685411911,
     lng: 13.824518154061039,
-    placeName: 'Via Crocifisso',
-    placeDescription: 'Via Crocifisso è una delle strade storiche del centro di Cassino. '
-        'Il nome richiama la tradizione religiosa del territorio, con riferimenti '
-        'alle chiese e ai luoghi di culto presenti nella zona.',
-    placeAddress: 'Via Crocifisso, Cassino (FR)',
-    placeImageAsset: '',
+    placeName: 'Anfiteatro Romano di Cassino',
+    placeDescription:
+        'Antico anfiteatro romano risalente all\'epoca imperiale, testimonianza '
+        'del ricco passato della città di Casinum. I resti dell\'anfiteatro sono '
+        'visibili nell\'area archeologica e rappresentano uno dei monumenti '
+        'più significativi della storia romana di Cassino.',
+    placeAddress: 'Zona archelogica, Cassino (FR)',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Cassino_-_Anfiteatro_romano.jpg/1280px-Cassino_-_Anfiteatro_romano.jpg',
   ),
   QrPoint(
-    label: 'Via delle Terme',
+    label: 'Terme Romane',
     password: 'pass3',
     lat: 41.48320703366475,
     lng: 13.831191489793465,
-    placeName: 'Via delle Terme',
-    placeDescription: 'Via delle Terme deve il suo nome alle antiche terme romane '
-        'presenti nell\'area di Cassino, testimonianza del ricco passato '
-        'romano della città un tempo chiamata Casinum.',
+    placeName: 'Terme Romane di Cassino',
+    placeDescription:
+        'Le antiche terme romane di Cassino (Casinum) risalgono al periodo imperiale. '
+        'Erano un luogo di incontro sociale e igiene pubblica fondamentale '
+        'per la vita quotidiana della città romana. I resti ancora visibili '
+        'testimoniano la grandezza dell\'antica civiltà romana nel territorio.',
     placeAddress: 'Via delle Terme, Cassino (FR)',
-    placeImageAsset: '',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Cassino_-_Terme_romane.jpg/1280px-Cassino_-_Terme_romane.jpg',
   ),
   QrPoint(
-    label: 'Via Montecassino 1',
+    label: 'Abbazia di Montecassino',
     password: 'pass4',
     lat: 41.49571539606111,
     lng: 13.825049033341385,
-    placeName: 'Via Montecassino (zona nord)',
-    placeDescription: 'Tratto nord di Via Montecassino, la strada che collega '
-        'Cassino all\'omonima abbazia benedettina. L\'Abbazia di Montecassino, '
-        'fondata da San Benedetto da Norcia nel 529 d.C., è uno dei monasteri '
-        'più importanti al mondo e simbolo della città.',
-    placeAddress: 'Via Montecassino, Cassino (FR)',
-    placeImageAsset: '',
+    placeName: 'Abbazia di Montecassino',
+    placeDescription:
+        'L\'Abbazia di Montecassino, fondata da San Benedetto da Norcia nel 529 d.C., '
+        'è uno dei monasteri più importanti e antichi del mondo occidentale. '
+        'Distrutta più volte e sempre ricostruita, è simbolo di resilienza e fede. '
+        'Dichiarata patrimonio storico e artistico, domina il Monte Cairo con vista '
+        'panoramica sulla Valle del Liri.',
+    placeAddress: 'Via Montecassino, Montecassino, Cassino (FR)',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Montecassino_abbey_may_2008.jpg/1280px-Montecassino_abbey_may_2008.jpg',
   ),
   QrPoint(
-    label: 'Via Sant\'Angelo 1',
+    label: 'Cimitero Polacco',
     password: 'pass5',
     lat: 41.47781906390782,
     lng: 13.826406429123592,
-    placeName: 'Via Sant\'Angelo (zona 1)',
-    placeDescription: 'Primo tratto di Via Sant\'Angelo, una delle arterie principali '
-        'del quartiere residenziale di Cassino. Il nome richiama l\'antica '
-        'denominazione religiosa del territorio.',
+    placeName: 'Cimitero Militare Polacco',
+    placeDescription:
+        'Il Cimitero Militare Polacco di Cassino accoglie le spoglie di oltre '
+        '1.000 soldati polacchi caduti durante la Battaglia di Cassino nel 1944. '
+        'È uno dei luoghi più toccanti della città, dedicato ai soldati del II Corpo '
+        'Polacco che combatterono sotto il generale Anders per la liberazione d\'Italia.',
     placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
-    placeImageAsset: '',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Polish_War_Cemetery_Cassino_2015_02.jpg/1280px-Polish_War_Cemetery_Cassino_2015_02.jpg',
   ),
   QrPoint(
-    label: 'Via Montecassino 2',
+    label: 'Museo Storico della Battaglia',
     password: 'pass6',
     lat: 41.49229920533556,
     lng: 13.815514635106842,
-    placeName: 'Via Montecassino (zona sud)',
-    placeDescription: 'Tratto sud di Via Montecassino. Da qui si ha una delle viste '
-        'più suggestive verso l\'Abbazia di Montecassino arroccata sul monte. '
-        'La strada percorre le pendici del Monte Cairo verso l\'abbazia.',
-    placeAddress: 'Via Montecassino, Cassino (FR)',
-    placeImageAsset: '',
+    placeName: 'Museo Storico della Battaglia di Cassino',
+    placeDescription:
+        'Il Museo Storico della Battaglia di Cassino racconta la storia delle quattro '
+        'Battaglie di Cassino (1943–1944), tra le più sanguinose della Seconda Guerra '
+        'Mondiale. Il museo conserva armi, documenti, fotografie e reperti bellici '
+        'che testimoniano il sacrificio di soldati di numerose nazioni.',
+    placeAddress: 'Via Rocca Janula, Cassino (FR)',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Museo_Storico_Cassino.jpg/1280px-Museo_Storico_Cassino.jpg',
   ),
   QrPoint(
-    label: 'Pista Ciclabile Ausonia',
+    label: 'Parco Folcara',
     password: 'pass7',
     lat: 41.472449200349764,
     lng: 13.828219859628286,
-    placeName: 'Pista Ciclabile — Via Ausonia',
-    placeDescription: 'Tratto della pista ciclabile che collega Via Ausonia al '
-        'Sentiero Mastronardi. Un percorso verde pensato per la mobilità '
-        'sostenibile, immerso nel verde urbano di Cassino.',
+    placeName: 'Parco e Pista Ciclabile Folcara',
+    placeDescription:
+        'L\'area verde di Folcara è il polmone verde di Cassino, attraversata dalla '
+        'pista ciclabile che collega Via Ausonia al Sentiero Mastronardi. '
+        'Un percorso ideale per chi ama la mobilità sostenibile e le passeggiate '
+        'nella natura, con aree attrezzate per il tempo libero.',
     placeAddress: 'Via Ausonia / Sentiero Mastronardi, Cassino (FR)',
-    placeImageAsset: '',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Cassino_parco.jpg/1280px-Cassino_parco.jpg',
   ),
   QrPoint(
-    label: 'Via Sant\'Angelo 2',
+    label: 'ITIS E. Majorana',
     password: 'pass8',
     lat: 41.46813009510813,
     lng: 13.831122747134286,
-    placeName: 'Via Sant\'Angelo (zona 2)',
-    placeDescription: 'Secondo tratto di Via Sant\'Angelo, in prossimità dell\'ITIS '
-        'E. Majorana. Questa zona è particolarmente frequentata dagli studenti '
-        'che raggiungono l\'istituto a piedi ogni mattina.',
-    placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
-    placeImageAsset: '',
+    placeName: 'ITIS E. Majorana — Ingresso',
+    placeDescription:
+        'L\'Istituto Tecnico Industriale Statale "Ettore Majorana" di Cassino è uno '
+        'dei principali istituti tecnici della provincia di Frosinone. '
+        'Fondato nel XX secolo, offre corsi di Informatica, Elettronica, '
+        'Elettrotecnica e Meccanica. È intitolato al fisico siciliano Ettore Majorana, '
+        'scomparso misteriosamente nel 1938.',
+    placeAddress: 'Via Sant\'Angelo 2, Cassino (FR)',
+    placeImageUrl:
+        'https://itiscassino.edu.it/wp-content/uploads/2021/09/ITIS-Cassino.jpg',
   ),
   QrPoint(
-    label: 'Via Sant\'Angelo 3',
+    label: 'Università di Cassino',
     password: 'pass9',
     lat: 41.4688109201981,
     lng: 13.833891784111781,
-    placeName: 'Via Sant\'Angelo (zona 3)',
-    placeDescription: 'Terzo tratto di Via Sant\'Angelo, nelle immediate vicinanze '
-        'dell\'ITIS E. Majorana. Quasi alla fine del percorso dalla stazione '
-        'alla scuola.',
-    placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
-    placeImageAsset: '',
+    placeName: 'Università degli Studi di Cassino',
+    placeDescription:
+        'L\'Università degli Studi di Cassino e del Lazio Meridionale (UNICAS) '
+        'è un ateneo statale fondato nel 1979. Offre corsi in Ingegneria, '
+        'Economia, Lettere e Scienze. Il campus è distribuito in più sedi '
+        'nella città e rappresenta un polo formativo importante per tutto il Lazio meridionale.',
+    placeAddress: 'Via G. Di Biasio 43, Cassino (FR)',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Universit%C3%A0_di_Cassino.jpg/1280px-Universit%C3%A0_di_Cassino.jpg',
   ),
   QrPoint(
-    label: 'Via Sant\'Angelo 4',
+    label: 'Rocca Janula',
     password: 'pass10',
     lat: 41.47767602497951,
     lng: 13.826309190301341,
-    placeName: 'Via Sant\'Angelo (zona 4)',
-    placeDescription: 'Quarto tratto di Via Sant\'Angelo. Punto panoramico da cui '
-        'si può osservare il territorio circostante di Cassino e le colline '
-        'che fanno da cornice alla città.',
-    placeAddress: 'Via Sant\'Angelo, Cassino (FR)',
-    placeImageAsset: '',
+    placeName: 'Rocca Janula',
+    placeDescription:
+        'La Rocca Janula è una fortezza medievale che sorge su una collina '
+        'che domina la città di Cassino. Costruita intorno all\'XI secolo, '
+        'fu per secoli il baluardo difensivo della città. '
+        'Dalla rocca si gode un panorama mozzafiato sulla Valle del Liri '
+        'e sull\'Abbazia di Montecassino.',
+    placeAddress: 'Via Rocca Janula, Cassino (FR)',
+    placeImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Rocca_Janula_Cassino.jpg/1280px-Rocca_Janula_Cassino.jpg',
   ),
 ];
 
@@ -171,7 +205,8 @@ class QrPoint {
   final String placeName;
   final String placeDescription;
   final String placeAddress;
-  final String placeImageAsset;
+  /// URL remota dell'immagine del luogo (usata con Image.network)
+  final String placeImageUrl;
 
   const QrPoint({
     required this.label,
@@ -181,9 +216,12 @@ class QrPoint {
     this.placeName = '',
     this.placeDescription = '',
     this.placeAddress = '',
-    this.placeImageAsset = '',
+    this.placeImageUrl = '',
   });
   LatLng get latLng => LatLng(lat, lng);
+
+  /// Retrocompatibilità: campo usato in map_navigation_screen
+  String get placeImageAsset => '';
 }
 
 // ─── Screen principale: mappa + lista ─────────────────────────────────────────────
@@ -1068,7 +1106,7 @@ class _PlaceInfoSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final hasImage = point.placeImageAsset.isNotEmpty;
+    final hasImage = point.placeImageUrl.isNotEmpty;
     final name = point.placeName.isNotEmpty ? point.placeName : point.label;
 
     return DraggableScrollableSheet(
@@ -1134,9 +1172,16 @@ class _PlaceInfoSheet extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: hasImage
-                        ? Image.asset(point.placeImageAsset,
-                            height: 200, width: double.infinity, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _buildPlaceholder(theme))
+                        ? Image.network(
+                            point.placeImageUrl,
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) => progress == null
+                                ? child
+                                : _buildImageSkeleton(theme),
+                            errorBuilder: (_, __, ___) => _buildPlaceholder(theme),
+                          )
                         : _buildPlaceholder(theme),
                   ),
                   const SizedBox(height: 20),
@@ -1198,6 +1243,23 @@ class _PlaceInfoSheet extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageSkeleton(ThemeData theme) {
+    return Container(
+      height: 200,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: theme.colorScheme.primary,
+          strokeWidth: 2.5,
         ),
       ),
     );
