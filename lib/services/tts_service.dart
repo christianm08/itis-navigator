@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/string_utils.dart';
+import '../utils/prefs_utils.dart';
 
 class TtsService extends ChangeNotifier {
   final FlutterTts _tts = FlutterTts();
@@ -20,9 +21,8 @@ class TtsService extends ChangeNotifier {
 
   Future<void> _init() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final rate = prefs.getDouble('tts_speech_rate') ?? 0.5;
-      _enabled = prefs.getBool('tts_enabled') ?? true;
+      final rate = await PrefsUtils.getTtsSpeechRate();
+      _enabled = await PrefsUtils.isTtsEnabled();
 
       await _tts.setLanguage('it-IT');
       
@@ -107,8 +107,7 @@ class TtsService extends ChangeNotifier {
   Future<void> setSpeechRate(double rate) async {
     await _ready;
     await _tts.setSpeechRate(rate);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('tts_speech_rate', rate);
+    await PrefsUtils.setTtsSpeechRate(rate);
   }
 
   Future<void> stop() async {
@@ -135,10 +134,7 @@ class TtsService extends ChangeNotifier {
   }
 
   String _cleanForSpeech(String text) {
-    return text
-        .replaceAll(RegExp(r'\p{So}|\p{Cs}', unicode: true), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    return StringUtils.cleanForSpeech(text);
   }
 
   @override

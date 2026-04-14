@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../constants/app_strings.dart';
+import '../constants/route_constants.dart';
+import '../utils/weather_utils.dart';
 
 /// Meteo via Open-Meteo (https://open-meteo.com)
 /// - Completamente gratuito, nessuna API key richiesta
@@ -21,15 +24,15 @@ class WeatherService extends ChangeNotifier {
   int get humidity => _humidity;
   double get windSpeed => _windSpeed;
 
-  static const double _lat = 41.4849;
-  static const double _lon = 13.8296;
+  static const double _lat = AppStrings.cassinoLat;
+  static const double _lon = AppStrings.cassinoLon;
 
   Future<void> fetchWeather() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final url = Uri.https('api.open-meteo.com', '/v1/forecast', {
+      final url = Uri.https(RouteConstants.weatherBaseUrl, RouteConstants.weatherPath, {
         'latitude': '$_lat',
         'longitude': '$_lon',
         'current': [
@@ -45,7 +48,7 @@ class WeatherService extends ChangeNotifier {
       debugPrint('🌤️ Open-Meteo: $url');
 
       final response =
-          await http.get(url).timeout(const Duration(seconds: 10));
+          await http.get(url).timeout(const Duration(seconds: AppStrings.httpTimeoutSeconds));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -59,8 +62,8 @@ class WeatherService extends ChangeNotifier {
             (cur['wind_speed_10m'] as num?)?.toDouble() ?? 0.0;
 
         final code = (cur['weather_code'] as num?)?.toInt() ?? 0;
-        _description = _wmoDescription(code);
-        _icon = _wmoEmoji(code);
+        _description = WeatherUtils.wmoDescription(code);
+        _icon = WeatherUtils.wmoEmoji(code);
 
         debugPrint('✅ Meteo: $_temperature°C, $_description (WMO $code)');
       } else {
@@ -76,42 +79,13 @@ class WeatherService extends ChangeNotifier {
     }
   }
 
-  String _wmoDescription(int code) {
-    if (code == 0) return 'Cielo sereno';
-    if (code == 1) return 'Prevalentemente sereno';
-    if (code == 2) return 'Parzialmente nuvoloso';
-    if (code == 3) return 'Coperto';
-    if (code <= 49) return 'Nebbia';
-    if (code <= 57) return 'Pioggerella';
-    if (code <= 67) return 'Pioggia';
-    if (code <= 77) return 'Neve';
-    if (code <= 82) return 'Acquazzoni';
-    if (code <= 86) return 'Neve intensa';
-    if (code <= 99) return 'Temporale';
-    return 'Variabile';
-  }
-
-  String _wmoEmoji(int code) {
-    final isDay =
-        DateTime.now().hour >= 6 && DateTime.now().hour < 20;
-    if (code == 0) return isDay ? '☀️' : '🌙';
-    if (code <= 2) return isDay ? '🌤️' : '🌙';
-    if (code == 3) return '☁️';
-    if (code <= 49) return '🌫️';
-    if (code <= 67) return '🌧️';
-    if (code <= 77) return '🌨️';
-    if (code <= 82) return '🌦️';
-    if (code <= 99) return '⛈️';
-    return '🌤️';
-  }
-
   void _useMockData() {
-    final h = DateTime.now().hour;
-    _temperature = h < 12 ? '14.5' : h < 18 ? '18.2' : '13.0';
-    _description = h < 20 ? 'Cielo sereno' : 'Notte serena';
-    _icon = h < 20 ? '☀️' : '🌙';
-    _humidity = 72;
-    _windSpeed = 10.0;
+    final mock = WeatherUtils.generateMockWeather();
+    _temperature = mock.temperature;
+    _description = mock.description;
+    _icon = mock.icon;
+    _humidity = mock.humidity;
+    _windSpeed = mock.windSpeed;
   }
 
   Future<void> getWeatherForCassino() async => fetchWeather();

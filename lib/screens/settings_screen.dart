@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../constants/constants.dart';
+import '../utils/prefs_utils.dart';
+import '../utils/string_utils.dart';
 import '../services/theme_provider.dart';
 import '../services/tts_service.dart';
 import 'onboarding_screen.dart';
@@ -25,10 +26,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
+    final voiceEnabled = await PrefsUtils.isTtsEnabled();
+    final speechRate = await PrefsUtils.getTtsSpeechRate();
     setState(() {
-      _voiceEnabled = prefs.getBool('tts_enabled') ?? true;
-      _speechRate = prefs.getDouble('tts_speech_rate') ?? 0.5;
+      _voiceEnabled = voiceEnabled;
+      _speechRate = speechRate;
       _loading = false;
     });
     if (mounted) {
@@ -57,8 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (confirm != true || !mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_done', false);
+    await PrefsUtils.setOnboardingDone(false);
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const OnboardingScreen()),
@@ -66,11 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  String _rateLabel(double r) {
-    if (r <= 0.35) return 'Lenta';
-    if (r <= 0.55) return 'Normale';
-    return 'Veloce';
-  }
+  String _rateLabel(double r) => StringUtils.getSpeechRateLabel(r);
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Impostazioni'),
+        title: Text(AppStrings.settingsTitle),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Torna alla home',
@@ -146,8 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           if (v) {
                             context.read<TtsService>().speak('Guida vocale attivata.');
                           }
-                          SharedPreferences.getInstance()
-                              .then((p) => p.setBool('tts_enabled', v));
+                          PrefsUtils.setTtsEnabled(v);
                         },
                       ),
                     ),

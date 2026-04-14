@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/route_data_model.dart';
-import '../screens/qr_scanner_screen.dart' show kQrPoints;
+import '../constants/qr_checkpoints.dart' show QrCheckpoints;
+import '../constants/app_strings.dart';
+import '../utils/geo_utils.dart';
 import 'routing_service.dart';
 import 'tts_service.dart';
 
@@ -30,15 +32,15 @@ class NavigationService extends ChangeNotifier {
   TtsService? _ttsService;
 
   Position? _lastProcessedPosition;
-  static const double _minMoveMeters = 3.0;
+  static const double _minMoveMeters = AppStrings.minMovementDistance;
 
   /// true se startNavigation ha usato la posizione di fallback (GPS non pronto).
   /// Appena arriva la prima posizione GPS reale, ricalcoliamo subito il percorso.
   bool _startedFromFallback = false;
 
-  static const double stepProximityThreshold = 22.0;
-  static const double offRouteThreshold = 40.0;
-  static const double arrivalThreshold = 25.0;
+  static const double stepProximityThreshold = AppStrings.proximityThreshold;
+  static const double offRouteThreshold = AppStrings.offRouteThreshold;
+  static const double arrivalThreshold = AppStrings.arrivalThreshold;
 
   bool get isNavigating => _isNavigating;
   bool get isOffRoute => _isOffRoute;
@@ -94,7 +96,7 @@ class NavigationService extends ChangeNotifier {
     await _buildRoute(start);
 
     final name = _destinationName.isNotEmpty ? _destinationName : 'destinazione';
-    _announce('Navigazione avviata verso $name. '
+    _announce('${AppStrings.navigationStarted} $name. '
         'Distanza: ${getFormattedDistance()}. '
         'Tempo stimato: ${getFormattedETA()}.');
 
@@ -103,10 +105,10 @@ class NavigationService extends ChangeNotifier {
 
   /// Waypoints QR originali nell'ordine corretto.
   static final List<LatLng> _allQrWaypoints =
-      kQrPoints.map((p) => p.latLng).toList();
+      QrCheckpoints.kQrPoints.map((p) => p.latLng).toList();
 
   int _nextWpIndex = 0;
-  static const double _wpProximityM = 40.0;
+  static const double _wpProximityM = AppStrings.waypointProximity;
 
   List<LatLng> get _remainingWaypoints =>
       _allQrWaypoints.sublist(_nextWpIndex);
@@ -189,8 +191,8 @@ class NavigationService extends ChangeNotifier {
       _remainingDistance = 0;
       _estimatedTimeRemaining = Duration.zero;
       final name = _destinationName.isNotEmpty ? _destinationName : 'destinazione';
-      _currentInstruction = '🎉 Sei arrivato a $name!';
-      _announce('Sei arrivato a $name.');
+      _currentInstruction = '🎉 ${AppStrings.destinationReached} $name!';
+      _announce('${AppStrings.destinationReached} $name.');
       notifyListeners();
       return;
     }
@@ -206,9 +208,9 @@ class NavigationService extends ChangeNotifier {
     _updateStepAndDistance(position);
 
     _estimatedTimeRemaining =
-        Duration(seconds: (_remainingDistance / 1.4).round());
+        Duration(seconds: (_remainingDistance / AppStrings.walkingSpeed).round());
     _currentInstruction =
-        currentStep?.instruction ?? 'Continua sul percorso';
+        currentStep?.instruction ?? AppStrings.continueOnRoute;
 
     if (_currentStepIndex != prevStepIndex && currentStep != null) {
       _announce(currentStep!.instruction);
@@ -219,11 +221,11 @@ class NavigationService extends ChangeNotifier {
     _isOffRoute = offDist > offRouteThreshold;
 
     final canReroute = _lastRerouteAt == null ||
-        DateTime.now().difference(_lastRerouteAt!).inSeconds >= 3;
+        DateTime.now().difference(_lastRerouteAt!).inSeconds >= AppStrings.rerouteCooldown;
     if (_isOffRoute && canReroute) {
-      _announce('Sei fuori percorso. Ricalcolo in corso.');
+      _announce(AppStrings.offRouteMessage);
       await _buildRoute(position);
-      if (_activeRoute != null) _currentInstruction = '⚠️ Percorso ricalcolato';
+      if (_activeRoute != null) _currentInstruction = '⚠️ ${AppStrings.routeRecalculated}';
     }
 
     // notifyListeners solo se lo stato visibile è cambiato
@@ -259,9 +261,9 @@ class NavigationService extends ChangeNotifier {
     double bestDist = double.infinity;
 
     for (int i = _currentStepIndex; i < steps.length; i++) {
-      final d = Geolocator.distanceBetween(
-        position.latitude, position.longitude,
-        steps[i].location.latitude, steps[i].location.longitude,
+      final d = GeoUtils.haversineDistance(
+        LatLng(position.latitude, position.longitude),
+        steps[i].location,
       );
       if (d < bestDist) {
         bestDist = d;
@@ -288,42 +290,23 @@ class NavigationService extends ChangeNotifier {
     if (pts.isEmpty) return 0.0;
 
     // Aggiorna snap index nella finestra corrente
-    final winStart = (_polylineSnapIndex - 20).clamp(0, pts.length - 1);
-    final winEnd = (_polylineSnapIndex + 20).clamp(0, pts.length - 1);
+    final snapResult = GeoUtils.snapToPolylineWindowed(
+      LatLng(position.latitude, position.longitude),
+      pts,
+      _polylineSnapIndex,
+      AppStrings.polylineWindow,
+    );
 
-    double minDist = double.infinity;
-    int minIndex = _polylineSnapIndex;
-
-    for (int i = winStart; i <= winEnd; i++) {
-      final d = Geolocator.distanceBetween(
-        position.latitude, position.longitude,
-        pts[i].latitude, pts[i].longitude,
-      );
-      if (d < minDist) {
-        minDist = d;
-        minIndex = i;
-      }
-    }
-    _polylineSnapIndex = minIndex;
-    return minDist;
+    _polylineSnapIndex = snapResult.index;
+    return snapResult.distance;
   }
 
   String getFormattedETA() {
-    if (_estimatedTimeRemaining.inHours > 0) {
-      return '${_estimatedTimeRemaining.inHours}h '
-          '${_estimatedTimeRemaining.inMinutes % 60}m';
-    }
-    if (_estimatedTimeRemaining.inMinutes > 0) {
-      return '${_estimatedTimeRemaining.inMinutes} min';
-    }
-    return '${_estimatedTimeRemaining.inSeconds} sec';
+    return GeoUtils.formatDuration(_estimatedTimeRemaining);
   }
 
   String getFormattedDistance() {
-    if (_remainingDistance >= 1000) {
-      return '${(_remainingDistance / 1000).toStringAsFixed(1)} km';
-    }
-    return '${_remainingDistance.round()} m';
+    return GeoUtils.formatDistance(_remainingDistance);
   }
 
   void stopNavigation() {

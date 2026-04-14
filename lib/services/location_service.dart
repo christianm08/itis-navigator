@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import '../constants/app_strings.dart';
 
 class LocationService extends ChangeNotifier {
   Position? _currentPosition;
@@ -14,13 +15,14 @@ class LocationService extends ChangeNotifier {
 
   // Debounce bussola: notifica solo se heading cambia di almeno 5 gradi
   double? _lastNotifiedHeading;
-  static const double _headingThreshold = 5.0;
+  static const double _headingThreshold = AppStrings.headingThreshold;
 
   Position? get currentPosition => _currentPosition;
   bool get isLoading => _isLoading;
   String? get error => _error;
   double? get heading => _heading;
   bool get isInitialized => _isInitialized;
+  bool get hasError => _error != null;
 
   Future<void> initialize() async {
     if (_isInitialized && _currentPosition != null) return;
@@ -32,7 +34,7 @@ class LocationService extends ChangeNotifier {
 
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _error = 'Attiva i servizi di localizzazione del dispositivo';
+        _error = AppStrings.permissionLocationDisabled;
         _isLoading = false;
         notifyListeners();
         return;
@@ -43,14 +45,13 @@ class LocationService extends ChangeNotifier {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied) {
-        _error = 'Permesso posizione negato';
+        _error = AppStrings.permissionLocationDenied;
         _isLoading = false;
         notifyListeners();
         return;
       }
       if (permission == LocationPermission.deniedForever) {
-        _error =
-            'Permesso posizione negato definitivamente. Apri le impostazioni.';
+        _error = AppStrings.permissionLocationDeniedForever;
         _isLoading = false;
         notifyListeners();
         return;
@@ -62,7 +63,7 @@ class LocationService extends ChangeNotifier {
           distanceFilter: 0,
         ),
       ).timeout(
-        const Duration(seconds: 10),
+        const Duration(seconds: AppStrings.httpTimeoutSeconds),
         onTimeout: () => throw TimeoutException('Timeout GPS'),
       );
 
@@ -90,7 +91,7 @@ class LocationService extends ChangeNotifier {
     _positionStreamSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
+        distanceFilter: AppStrings.gpsDistanceFilter,
       ),
     ).listen(
       (position) {
@@ -101,7 +102,7 @@ class LocationService extends ChangeNotifier {
       onError: (error) {
         debugPrint('⚠️ Errore stream posizione: $error');
         if (_currentPosition == null) {
-          _error = 'Errore nel tracciamento posizione';
+          _error = AppStrings.locationError;
           notifyListeners();
         }
       },
@@ -141,7 +142,7 @@ class LocationService extends ChangeNotifier {
           distanceFilter: 0,
         ),
       ).timeout(
-        const Duration(seconds: 10),
+        const Duration(seconds: AppStrings.httpTimeoutSeconds),
         onTimeout: () => throw TimeoutException('Timeout aggiornamento'),
       );
       _error = null;
