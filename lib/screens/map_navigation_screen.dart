@@ -7,8 +7,12 @@ import '../services/location_service.dart';
 import '../services/navigation_service.dart';
 import '../services/theme_provider.dart';
 import '../services/tts_service.dart';
+import '../constants/qr_checkpoints.dart' show QrPoint, QrCheckpoints;
 import 'destination_picker_screen.dart';
-import 'qr_scanner_screen.dart' show QrCameraPage, QrPoint, kQrPoints;
+import 'qr_scanner_screen.dart' show QrCameraPage;
+
+// Use the canonical kQrPoints from constants
+List<QrPoint> get kQrPoints => QrCheckpoints.kQrPoints;
 
 const String _darkMapStyle = r'['
   r'{"elementType":"geometry","stylers":[{"color":"#212121"}]},'

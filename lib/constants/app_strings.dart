@@ -36,7 +36,7 @@ class AppStrings {
 
   // QR Scanner
   static const qrTitle = 'Percorso QR';
-  static const qrSubtitle = 'Scansiona i 3 punti Stazione — ITIS';
+  static const qrSubtitle = 'Scansiona i punti Stazione — ITIS';
   static const qrAccessibility = 'Percorso QR. Scansiona i punti lungo il percorso dalla Stazione all ITIS.';
 
   // Transport
