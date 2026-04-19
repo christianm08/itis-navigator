@@ -12,6 +12,7 @@ import 'destination_picker_screen.dart' show kDestinations;
 import 'map_navigation_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'settings_screen.dart';
+import 'sos_screen.dart';
 import 'transport_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -82,6 +83,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openSos() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SosScreen()),
+    );
+  }
+
   @override
   void dispose() {
     _clockTimer?.cancel();
@@ -128,6 +136,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       Semantics(
                         button: true,
+                        label: 'Emergenza SOS',
+                        child: IconButton(
+                          icon: const Icon(Icons.emergency_rounded,
+                              color: Colors.white, size: 28),
+                          tooltip: 'SOS Emergenza',
+                          onPressed: _openSos,
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.red.withValues(alpha: 0.30),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Semantics(
+                        button: true,
                         label: 'Apri impostazioni',
                         child: IconButton(
                           icon: const Icon(Icons.settings_rounded,
@@ -170,6 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildTransportCard(theme),
                 const SizedBox(height: 20),
                 _buildQrCard(theme),
+                const SizedBox(height: 20),
+                _buildSosCard(theme),
                 const SizedBox(height: 20),
                 _buildSchoolInfoCard(theme),
                 const SizedBox(height: 20),
@@ -420,6 +447,71 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TransportScreen()),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSosCard(ThemeData theme) {
+    return Semantics(
+      button: true,
+      label: 'Apri schermata SOS emergenza',
+      child: GestureDetector(
+        onTap: _openSos,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFB71C1C), Color(0xFFD32F2F)],
+            ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFD32F2F).withValues(alpha: 0.35),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.emergency_rounded,
+                    color: Colors.white, size: 30),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SOS Emergenza',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Chiama i soccorsi in caso di emergenza',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: Colors.white, size: 28),
+            ],
+          ),
         ),
       ),
     );

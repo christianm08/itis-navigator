@@ -9,3 +9,4 @@ export 'trenitalia_screen.dart';
 export 'cotral_screen.dart';
 export 'magni_screen.dart';
 export 'destination_picker_screen.dart';
+export 'sos_screen.dart';
