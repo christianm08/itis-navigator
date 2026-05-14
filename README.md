@@ -398,7 +398,7 @@ Puoi segnalare problemi o suggerire nuove funzionalità aprendo una "Issue" sull
 
 ### Gli sviluppatori
 
-ITIS Navigator è stato ideato e sviluppato da **Christian Mascio** (GitHub: [@christianm08](https://github.com/christianm08)) e **Vincenzo Riccio**, entrambi studenti dell'ITIS E. Majorana di Cassino. Il progetto nasce come iniziativa degli studenti con l'obiettivo di creare uno strumento concreto e utile per la comunità scolastica dell'istituto, dimostrando al contempo le competenze di sviluppo mobile acquisite durante e oltre il percorso scolastico.
+ITIS Navigator è stato ideato e sviluppato da **Christian Mascio** (GitHub: [@christianm08](https://github.com/christianm08)) e [@Vincenzo Riccio](https://github.com/V1ns533), entrambi studenti dell'ITIS E. Majorana di Cassino. Il progetto nasce come iniziativa degli studenti con l'obiettivo di creare uno strumento concreto e utile per la comunità scolastica dell'istituto, dimostrando al contempo le competenze di sviluppo mobile acquisite durante e oltre il percorso scolastico.
 
 ### Tecnologia
 
