@@ -46,7 +46,7 @@ class SosScreen extends StatelessWidget {
       ),
       _SosContact(
         label: 'Segreteria Scuola',
-        number: '07762991',
+        number: '0776 312302',
         icon: Icons.school_rounded,
         color: const Color(0xFF2E7D32),
       ),

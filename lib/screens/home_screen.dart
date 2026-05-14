@@ -134,22 +134,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600)),
                       ),
-                      Semantics(
-                        button: true,
-                        label: 'Emergenza SOS',
-                        child: IconButton(
-                          icon: const Icon(Icons.emergency_rounded,
-                              color: Colors.white, size: 28),
-                          tooltip: 'SOS Emergenza',
-                          onPressed: _openSos,
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.red.withValues(alpha: 0.30),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
                       const SizedBox(width: 4),
                       Semantics(
                         button: true,
