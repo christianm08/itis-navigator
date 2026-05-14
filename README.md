@@ -6,6 +6,9 @@
 
 ---
 
+![Icona](assets/icon/app_icon.png)
+
+
 ## Indice generale
 
 1. [Cos'è ITIS Navigator](#1-cosè-itis-navigator)
